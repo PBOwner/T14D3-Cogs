@@ -52,13 +52,13 @@ class WormHole(commands.Cog):
     
     @commands.Cog.listener()
     async def on_message_without_command(self, message: discord.Message):
-        if not message.guild:  # don't allow in DMs
+        if not message.guild:  # Don't allow in DMs
             return
         if message.author.bot or not message.channel.permissions_for(message.guild.me).send_messages:
             return
         if isinstance(message.channel, discord.TextChannel) and message.content.startswith(commands.when_mentioned(self.bot, message)[0]):
             return  # Ignore bot commands
-        
+    
         linked_channels = await self.config.linked_channels_list()
         guild = message.guild
         author = message.author
@@ -68,7 +68,14 @@ class WormHole(commands.Cog):
                     channel = self.bot.get_channel(channel_id)
                     if channel:
                         display_name = author.display_name if author.display_name else author.name
-                        await channel.send(f"**{guild.name} - {display_name}:** {message.content}")
-    
-def setup(bot):
-    bot.add_cog(WormHole(bot))
+                        if message.attachments:
+                            for attachment in message.attachments:
+                                await channel.send(f"**{guild.name} - {display_name}:** {message.content}")
+                                await attachment.save(f"temp_{attachment.filename}")
+                                with open(f"temp_{attachment.filename}", "rb") as file:
+                                    await channel.send(file=discord.File(file))
+                                os.remove(f"temp_{attachment.filename}")
+                        else:
+                            await channel.send(f"**{guild.name} - {display_name}:** {message.content}")
+    async def setup(bot):
+    await bot.add_cog(WormHole(bot))
