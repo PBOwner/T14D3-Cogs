@@ -80,7 +80,7 @@ class WormHole(commands.Cog):
                             await channel.send(f"**{guild.name} - {display_name}:** {message.content}")
 
     @wormhole.command()
-    async def wmblacklist(self, ctx, user: discord.User):
+    async def blacklist(self, ctx, user: discord.User):
         """Command to prevent the wormhole from relaying messages sent by the targeted user."""
         user_blacklist = await self.config.user_blacklist()
         if user.id not in user_blacklist:
