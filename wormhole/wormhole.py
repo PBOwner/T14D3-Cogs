@@ -81,14 +81,31 @@ class WormHole(commands.Cog):
 
     @wormhole.command()
     async def blacklist(self, ctx, user: discord.User):
-        """Command to prevent the wormhole from relaying messages sent by the targeted user."""
-        user_blacklist = await self.config.user_blacklist()
-        if user.id not in user_blacklist:
-            user_blacklist.append(user.id)
-            await self.config.user_blacklist.set(user_blacklist)
-            await ctx.send(f"{user.display_name} has been added to the wormhole blacklist.")
+        """Prevent specific members from sending messages through the wormhole."""
+        if ctx.author == ctx.guild.owner:
+            user_blacklist = await self.config.user_blacklist()
+            if user.id not in user_blacklist:
+                user_blacklist.append(user.id)
+                await self.config.user_blacklist.set(user_blacklist)
+                await ctx.send(f"{user.display_name} has been added to the wormhole blacklist.")
+            else:
+                await ctx.send(f"{user.display_name} is already in the wormhole blacklist.")
         else:
-            await ctx.send(f"{user.display_name} is already in the wormhole blacklist.")
+            await ctx.send("You must be the guild owner to use this command.")
+            
+    @wormhole.command(name="unblacklist")
+    async def wormhole_unblacklist(self, ctx, user: discord.User):
+        """Command to remove a user from the wormhole blacklist (Guild Owner Only)."""
+        if ctx.author == ctx.guild.owner:
+            user_blacklist = await self.config.user_blacklist()
+            if user.id in user_blacklist:
+                user_blacklist.remove(user.id)
+                await self.config.user_blacklist.set(user_blacklist)
+                await ctx.send(f"{user.display_name} has been removed from the wormhole blacklist.")
+            else:
+                await ctx.send(f"{user.display_name} is not in the wormhole blacklist.")
+        else:
+            await ctx.send("You must be the guild owner to use this command.")
 
 def setup(bot):
     bot.add_cog(WormHole(bot))
