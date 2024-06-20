@@ -1,7 +1,6 @@
 import discord
 import os
 from redbot.core import commands, Config
-
 class WormHole(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -11,7 +10,6 @@ class WormHole(commands.Cog):
             global_blacklist=[],
             word_filters=[]
         )  # Initialize the configuration
-        self.message_references = {}  # Store message references
 
     async def send_status_message(self, message, channel):
         linked_channels = await self.config.linked_channels_list()
@@ -20,12 +18,10 @@ class WormHole(commands.Cog):
             relay_channel = self.bot.get_channel(channel_id)
             if relay_channel and relay_channel != channel:
                 await relay_channel.send(f"***The wormhole is shifting...** {guild.name}: {message}*")
-
     @commands.group()
     async def wormhole(self, ctx):
         """Manage public wormhole connections."""
         pass
-
     @wormhole.command(name="open")
     async def wormhole_open(self, ctx):
         """Link the current channel to the public wormhole network."""
@@ -37,7 +33,6 @@ class WormHole(commands.Cog):
             await self.send_status_message(f"A faint signal was picked up from {ctx.channel.mention}, connection has been established.", ctx.channel)
         else:
             await ctx.send("This channel is already part of the public wormhole.")
-
     @wormhole.command(name="close")
     async def wormhole_close(self, ctx):
         """Unlink the current channel from the public wormhole network."""
@@ -49,7 +44,6 @@ class WormHole(commands.Cog):
             await self.send_status_message(f"The signal from {ctx.channel.mention} has become too faint to be picked up, the connection was lost.", ctx.channel)
         else:
             await ctx.send("This channel is not part of the public wormhole.")
-
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if not message.guild:  # Don't allow in DMs
@@ -58,39 +52,30 @@ class WormHole(commands.Cog):
             return
         if isinstance(message.channel, discord.TextChannel) and message.content.startswith(commands.when_mentioned(self.bot, message)[0]):
             return  # Ignore bot commands
-
         # Check if the message is a bot command
         ctx = await self.bot.get_context(message)
         if ctx.valid:
             return  # Ignore bot commands
-
         linked_channels = await self.config.linked_channels_list()
         global_blacklist = await self.config.global_blacklist()
         word_filters = await self.config.word_filters()
-
         if message.author.id in global_blacklist:
             return  # Author is globally blacklisted
-
         if message.channel.id in linked_channels:
             if any(word in message.content for word in word_filters):
                 await message.channel.send("That word is not allowed.")
                 await message.delete()
                 return  # Message contains a filtered word, notify user and delete it
-
             if message.channel.is_nsfw():
                 await message.channel.send("NSFW content is not allowed in the wormhole.")
                 await message.delete()
                 return  # Delete NSFW messages
-
             if "@everyone" in message.content or "@here" in message.content:
                 await message.channel.send("`@everyone` and `@here` pings are not allowed.")
                 await message.delete()
                 return  # Message contains prohibited pings, notify user and delete it
 
             display_name = message.author.display_name if message.author.display_name else message.author.name
-
-            # Store the message reference
-            self.message_references[message.id] = (message.author.id, message.guild.id)
 
             # Relay the message to other linked channels
             for channel_id in linked_channels:
@@ -107,13 +92,21 @@ class WormHole(commands.Cog):
                         else:
                             await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
 
+            # Check for mentions and send DM
+            if message.reference and message.reference.resolved:
+                referenced_message = message.reference.resolved
+                if referenced_message.author != message.author:
+                    embed = discord.Embed(title="You were mentioned")
+                    embed.add_field(name="Who", value=message.author.mention, inline=False)
+                    embed.add_field(name="Where", value=f"{message.channel.mention} in {message.guild.name}", inline=False)
+                    embed.add_field(name="What", value=message.content, inline=False)
+                    await referenced_message.author.send(embed=embed)
+
     @commands.Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
         if not after.guild:
             return
-
         linked_channels = await self.config.linked_channels_list()
-
         if after.channel.id in linked_channels:
             display_name = after.author.display_name if after.author.display_name else after.author.name
             for channel_id in linked_channels:
@@ -121,14 +114,11 @@ class WormHole(commands.Cog):
                     channel = self.bot.get_channel(channel_id)
                     if channel:
                         await channel.send(f"**{after.guild.name} - {display_name} (edited):** {after.content}")
-
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
         if not message.guild:
             return
-
         linked_channels = await self.config.linked_channels_list()
-
         # Check if the message is in a public wormhole channel
         if message.channel.id in linked_channels:
             for channel_id in linked_channels:
@@ -139,25 +129,6 @@ class WormHole(commands.Cog):
                             if msg.content == f"**{message.guild.name} - {message.author.display_name}:** {message.content}":
                                 await msg.delete()
                                 break
-
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        if message.author.bot:
-            return
-
-        linked_channels = await self.config.linked_channels_list()
-
-        if message.reference and message.channel.id in linked_channels:
-            original_message_id = message.reference.message_id
-            if original_message_id in self.message_references:
-                original_author_id, original_guild_id = self.message_references[original_message_id]
-                original_author = self.bot.get_user(original_author_id)
-                if original_author:
-                    embed = discord.Embed(title="You were mentioned")
-                    embed.add_field(name="Who", value=message.author.mention, inline=False)
-                    embed.add_field(name="Where", value=f"{message.channel.mention} in {message.guild.name}", inline=False)
-                    embed.add_field(name="What", value=message.content, inline=False)
-                    await original_author.send(embed=embed)
 
     @wormhole.command(name="globalblacklist")
     async def wormhole_globalblacklist(self, ctx, user: discord.User):
@@ -172,7 +143,6 @@ class WormHole(commands.Cog):
                 await ctx.send(f"{user.display_name} is already in the global public wormhole blacklist.")
         else:
             await ctx.send("You must be the bot owner to use this command.")
-
     @wormhole.command(name="unglobalblacklist")
     async def wormhole_unglobalblacklist(self, ctx, user: discord.User):
         """Command to remove a user from the global public wormhole blacklist (Bot Owner Only)."""
@@ -186,7 +156,6 @@ class WormHole(commands.Cog):
                 await ctx.send(f"{user.display_name} is not in the global public wormhole blacklist.")
         else:
             await ctx.send("You must be the bot owner to use this command.")
-
     @wormhole.command(name="addwordfilter")
     async def wormhole_addwordfilter(self, ctx, *, word: str):
         """Add a word to the public wormhole word filter."""
@@ -200,7 +169,6 @@ class WormHole(commands.Cog):
                 await ctx.send(f"`{word}` is already in the public wormhole word filter.")
         else:
             await ctx.send("You must be the bot owner to use this command.")
-
     @wormhole.command(name="removewordfilter")
     async def wormhole_removewordfilter(self, ctx, *, word: str):
         """Remove a word from the public wormhole word filter."""
@@ -214,6 +182,5 @@ class WormHole(commands.Cog):
                 await ctx.send(f"`{word}` is not in the public wormhole word filter.")
         else:
             await ctx.send("You must be the bot owner to use this command.")
-
 def setup(bot):
     bot.add_cog(WormHole(bot))
