@@ -101,20 +101,24 @@ class WormHole(commands.Cog):
             # Store the message reference
             self.message_references[message.id] = (message.author.id, message.guild.id)
 
-            # Relay the message to other linked channels
+            # Relay the message to other linked channels, removing mentions
+            content = message.content
+            for user in message.mentions:
+                content = content.replace(user.mention, f"@{user.display_name}")
+
             for channel_id in linked_channels:
                 if channel_id != message.channel.id:
                     channel = self.bot.get_channel(channel_id)
                     if channel:
                         if message.attachments:
                             for attachment in message.attachments:
-                                relay_message = await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
+                                relay_message = await channel.send(f"**{message.guild.name} - {display_name}:** {content}")
                                 await attachment.save(f"temp_{attachment.filename}")
                                 with open(f"temp_{attachment.filename}", "rb") as file:
                                     await channel.send(file=discord.File(file))
                                 os.remove(f"temp_{attachment.filename}")
                         else:
-                            relay_message = await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
+                            relay_message = await channel.send(f"**{message.guild.name} - {display_name}:** {content}")
                         self.relayed_messages[(message.id, channel_id)] = relay_message.id
 
             # Check for mentions and send DM if it's a reply
@@ -123,7 +127,7 @@ class WormHole(commands.Cog):
                 original_author_id, original_guild_id = self.message_references[original_message_id]
                 original_author = self.bot.get_user(original_author_id)
                 if original_author:
-                    embed = discord.Embed(title="You were mentioned")
+                    embed = discord.Embed(title="You were mentioned!")
                     embed.add_field(name="Who", value=message.author.mention, inline=False)
                     embed.add_field(name="Where", value=f"{message.channel.mention} in {message.guild.name}", inline=False)
                     embed.add_field(name="When", value=message.created_at.strftime("%Y-%m-%d %H:%M:%S"), inline=False)
@@ -132,7 +136,7 @@ class WormHole(commands.Cog):
             # Check for direct mentions and send DM
             for user in message.mentions:
                 if user.id != message.author.id:
-                    embed = discord.Embed(title="You were mentioned")
+                    embed = discord.Embed(title="You were mentioned!")
                     embed.add_field(name="Who", value=message.author.mention, inline=False)
                     embed.add_field(name="Where", value=f"{message.channel.mention} in {message.guild.name}", inline=False)
                     embed.add_field(name="When", value=message.created_at.strftime("%Y-%m-%d %H:%M:%S"), inline=False)
@@ -147,6 +151,9 @@ class WormHole(commands.Cog):
 
         if after.channel.id in linked_channels:
             display_name = after.author.display_name if after.author.display_name else after.author.name
+            content = after.content
+            for user in after.mentions:
+                content = content.replace(user.mention, f"@{user.display_name}")
             for channel_id in linked_channels:
                 if channel_id != after.channel.id:
                     channel = self.bot.get_channel(channel_id)
@@ -155,7 +162,7 @@ class WormHole(commands.Cog):
                             relay_message_id = self.relayed_messages[(before.id, channel_id)]
                             relay_message = await channel.fetch_message(relay_message_id)
                             await relay_message.delete()
-                            new_relay_message = await channel.send(f"**{after.guild.name} - {display_name} (edited):** {after.content}")
+                            new_relay_message = await channel.send(f"**{after.guild.name} - {display_name} (edited):** {content}")
                             self.relayed_messages[(after.id, channel_id)] = new_relay_message.id
 
     @commands.Cog.listener()
