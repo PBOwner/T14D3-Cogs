@@ -108,13 +108,13 @@ class WormHole(commands.Cog):
                     if channel:
                         if message.attachments:
                             for attachment in message.attachments:
-                                relay_message = await channel.send(embed=discord.Embed(title=f"{message.guild.name} - {display_name}", description=message.content))
+                                relay_message = await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
                                 await attachment.save(f"temp_{attachment.filename}")
                                 with open(f"temp_{attachment.filename}", "rb") as file:
                                     await channel.send(file=discord.File(file))
                                 os.remove(f"temp_{attachment.filename}")
                         else:
-                            relay_message = await channel.send(embed=discord.Embed(title=f"{message.guild.name} - {display_name}", description=message.content))
+                            relay_message = await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
                         self.relayed_messages[(message.id, channel_id)] = relay_message.id
 
             # Check for mentions and send DM if it's a reply
@@ -155,7 +155,7 @@ class WormHole(commands.Cog):
                             relay_message_id = self.relayed_messages[(before.id, channel_id)]
                             relay_message = await channel.fetch_message(relay_message_id)
                             await relay_message.delete()
-                            new_relay_message = await channel.send(embed=discord.Embed(title=f"{after.guild.name} - {display_name} (edited)", description=after.content))
+                            new_relay_message = await channel.send(f"**{after.guild.name} - {display_name} (edited):** {after.content}")
                             self.relayed_messages[(after.id, channel_id)] = new_relay_message.id
 
     @commands.Cog.listener()
