@@ -13,12 +13,6 @@ class WormHole(commands.Cog):
             word_filters=[]
         )  # Initialize the configuration
 
-        self.bot.loop.create_task(self.setup_listeners())
-
-    async def setup_listeners(self):
-        await self.bot.wait_until_ready()
-        self.bot.add_listener(self.on_message_without_command, "on_message")
-
     async def send_status_message(self, message, channel):
         linked_channels = await self.config.linked_channels_list()
         guild = channel.guild
@@ -57,7 +51,7 @@ class WormHole(commands.Cog):
             await ctx.send("This channel is not part of the wormhole.")
 
     @commands.Cog.listener()
-    async def on_message_without_command(self, message: discord.Message):
+    async def on_message(self, message: discord.Message):
         if not message.guild:  # Don't allow in DMs
             return
         if message.author.bot or not message.channel.permissions_for(message.guild.me).send_messages:
