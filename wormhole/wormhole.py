@@ -9,8 +9,8 @@ class WormHole(commands.Cog):
         self.config.register_global(
             linked_channels_list=[],
             user_blacklist=[],
-            word_filters=[],
-            global_blacklist=[]
+            global_blacklist=[],
+            word_filters=[]
         )  # Initialize the configuration
 
         self.bot.loop.create_task(self.setup_listeners())
@@ -34,7 +34,7 @@ class WormHole(commands.Cog):
 
     @wormhole.command(name="open")
     async def wormhole_open(self, ctx):
-        """Link the current channel to the wormhole network."""
+        """Link the current channel to the network."""
         linked_channels = await self.config.linked_channels_list()
         if ctx.channel.id not in linked_channels:
             linked_channels.append(ctx.channel.id)
@@ -46,7 +46,7 @@ class WormHole(commands.Cog):
 
     @wormhole.command(name="close")
     async def wormhole_close(self, ctx):
-        """Unlink the current channel from the wormhole network."""
+        """Unlink the current channel from the network."""
         linked_channels = await self.config.linked_channels_list()
         if ctx.channel.id in linked_channels:
             linked_channels.remove(ctx.channel.id)
@@ -65,36 +65,32 @@ class WormHole(commands.Cog):
         if isinstance(message.channel, discord.TextChannel) and message.content.startswith(commands.when_mentioned(self.bot, message)[0]):
             return  # Ignore bot commands
 
+        linked_channels = await self.config.linked_channels_list()
         global_blacklist = await self.config.global_blacklist()
         word_filters = await self.config.word_filters()
 
-        if message.author.id in await self.config.user_blacklist() or message.author.id in global_blacklist:
-            return  # Author is blacklisted
+        if message.author.id in global_blacklist:
+            return  # Author is globally blacklisted
 
         if any(word in message.content for word in word_filters):
-            return  # Message contains a filtered word, ignore it
+            await message.channel.send("That word is not allowed.")
+            return  # Message contains a filtered word, notify user and ignore it
 
-        linked_channels = await self.config.linked_channels_list()
-        if message.channel.id in linked_channels:
+        if message.channel.id in linked_channels and message.author.id not in await self.config.user_blacklist():
             for channel_id in linked_channels:
                 if channel_id != message.channel.id:
                     channel = self.bot.get_channel(channel_id)
                     if channel:
                         display_name = message.author.display_name if message.author.display_name else message.author.name
-                        content = message.content
-                        for emoji in message.emojis:
-                            if not self.bot.get_emoji(emoji.id):
-                                content = content.replace(str(emoji), f"https://cdn.discordapp.com/emojis/{emoji.id}.png")
-
                         if message.attachments:
                             for attachment in message.attachments:
-                                await channel.send(f"**{message.guild.name} - {display_name}:** {content}")
+                                await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
                                 await attachment.save(f"temp_{attachment.filename}")
                                 with open(f"temp_{attachment.filename}", "rb") as file:
                                     await channel.send(file=discord.File(file))
                                 os.remove(f"temp_{attachment.filename}")
                         else:
-                            await channel.send(f"**{message.guild.name} - {display_name}:** {content}")
+                            await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
 
     @wormhole.command()
     async def blacklist(self, ctx, user: discord.User):
