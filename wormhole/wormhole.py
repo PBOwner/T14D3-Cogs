@@ -70,25 +70,25 @@ class WormHole(commands.Cog):
         if message.author.id in global_blacklist:
             return  # Author is globally blacklisted
 
-        if any(word in message.content for word in word_filters):
-            await message.channel.send("That word is not allowed.")
-            await message.delete()
-            return  # Message contains a filtered word, notify user and delete it
-
-        if message.channel.is_nsfw():
-            await message.channel.send("NSFW content is not allowed in the wormhole.")
-            await message.delete()
-            return  # Delete NSFW messages
-
-        if "@everyone" in message.content or "@here" in message.content:
-            await message.channel.send("`@everyone` and `@here` pings are not allowed.")
-            await message.delete()
-            return  # Message contains prohibited pings, notify user and delete it
-
-        display_name = message.author.display_name if message.author.display_name else message.author.name
-
-        # Check if the message is in a public wormhole channel
         if message.channel.id in linked_channels:
+            if any(word in message.content for word in word_filters):
+                await message.channel.send("That word is not allowed.")
+                await message.delete()
+                return  # Message contains a filtered word, notify user and delete it
+
+            if message.channel.is_nsfw():
+                await message.channel.send("NSFW content is not allowed in the wormhole.")
+                await message.delete()
+                return  # Delete NSFW messages
+
+            if "@everyone" in message.content or "@here" in message.content:
+                await message.channel.send("`@everyone` and `@here` pings are not allowed.")
+                await message.delete()
+                return  # Message contains prohibited pings, notify user and delete it
+
+            display_name = message.author.display_name if message.author.display_name else message.author.name
+
+            # Relay the message to other linked channels
             for channel_id in linked_channels:
                 if channel_id != message.channel.id:
                     channel = self.bot.get_channel(channel_id)
