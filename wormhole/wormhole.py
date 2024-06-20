@@ -7,9 +7,7 @@ class WormHole(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(self, identifier="wormhole", force_registration=True)
         self.config.register_global(
-            linked_channels_list_1=[],
-            linked_channels_list_2=[],
-            linked_channels_list_3=[],
+            linked_channels_list=[],
             user_blacklist=[],
             word_filters=[],
             global_blacklist=[]
@@ -21,8 +19,8 @@ class WormHole(commands.Cog):
         await self.bot.wait_until_ready()
         self.bot.add_listener(self.on_message_without_command, "on_message")
 
-    async def send_status_message(self, message, channel, wormhole_number):
-        linked_channels = await self.config.get_raw(f'linked_channels_list_{wormhole_number}')
+    async def send_status_message(self, message, channel):
+        linked_channels = await self.config.linked_channels_list()
         guild = channel.guild
         for channel_id in linked_channels:
             relay_channel = self.bot.get_channel(channel_id)
@@ -35,34 +33,26 @@ class WormHole(commands.Cog):
         pass
 
     @wormhole.command(name="open")
-    async def wormhole_open(self, ctx, wormhole_number: int):
-        """Link the current channel to the specified wormhole network."""
-        if wormhole_number not in [1, 2, 3]:
-            await ctx.send("Invalid wormhole number. Please choose 1, 2, or 3.")
-            return
-
-        linked_channels = await self.config.get_raw(f'linked_channels_list_{wormhole_number}')
+    async def wormhole_open(self, ctx):
+        """Link the current channel to the wormhole network."""
+        linked_channels = await self.config.linked_channels_list()
         if ctx.channel.id not in linked_channels:
             linked_channels.append(ctx.channel.id)
-            await self.config.set_raw(f'linked_channels_list_{wormhole_number}', value=linked_channels)
-            await ctx.send(f"This channel has joined wormhole {wormhole_number}.")
-            await self.send_status_message(f"A faint signal was picked up from {ctx.channel.mention}, connection has been established.", ctx.channel, wormhole_number)
+            await self.config.linked_channels_list.set(linked_channels)
+            await ctx.send("This channel has joined the ever-changing maelstrom that is the wormhole.")
+            await self.send_status_message(f"A faint signal was picked up from {ctx.channel.mention}, connection has been established.", ctx.channel)
         else:
             await ctx.send("This channel is already part of the wormhole.")
 
     @wormhole.command(name="close")
-    async def wormhole_close(self, ctx, wormhole_number: int):
-        """Unlink the current channel from the specified wormhole network."""
-        if wormhole_number not in [1, 2, 3]:
-            await ctx.send("Invalid wormhole number. Please choose 1, 2, or 3.")
-            return
-
-        linked_channels = await self.config.get_raw(f'linked_channels_list_{wormhole_number}')
+    async def wormhole_close(self, ctx):
+        """Unlink the current channel from the wormhole network."""
+        linked_channels = await self.config.linked_channels_list()
         if ctx.channel.id in linked_channels:
             linked_channels.remove(ctx.channel.id)
-            await self.config.set_raw(f'linked_channels_list_{wormhole_number}', value=linked_channels)
-            await ctx.send(f"This channel has been severed from wormhole {wormhole_number}.")
-            await self.send_status_message(f"The signal from {ctx.channel.mention} has become too faint to be picked up, the connection was lost.", ctx.channel, wormhole_number)
+            await self.config.linked_channels_list.set(linked_channels)
+            await ctx.send("This channel has been severed from the wormhole.")
+            await self.send_status_message(f"The signal from {ctx.channel.mention} has become too faint to be picked up, the connection was lost.", ctx.channel)
         else:
             await ctx.send("This channel is not part of the wormhole.")
 
@@ -84,28 +74,27 @@ class WormHole(commands.Cog):
         if any(word in message.content for word in word_filters):
             return  # Message contains a filtered word, ignore it
 
-        for wormhole_number in [1, 2, 3]:
-            linked_channels = await self.config.get_raw(f'linked_channels_list_{wormhole_number}')
-            if message.channel.id in linked_channels:
-                for channel_id in linked_channels:
-                    if channel_id != message.channel.id:
-                        channel = self.bot.get_channel(channel_id)
-                        if channel:
-                            display_name = message.author.display_name if message.author.display_name else message.author.name
-                            content = message.content
-                            for emoji in message.emojis:
-                                if not self.bot.get_emoji(emoji.id):
-                                    content = content.replace(str(emoji), f"https://cdn.discordapp.com/emojis/{emoji.id}.png")
+        linked_channels = await self.config.linked_channels_list()
+        if message.channel.id in linked_channels:
+            for channel_id in linked_channels:
+                if channel_id != message.channel.id:
+                    channel = self.bot.get_channel(channel_id)
+                    if channel:
+                        display_name = message.author.display_name if message.author.display_name else message.author.name
+                        content = message.content
+                        for emoji in message.emojis:
+                            if not self.bot.get_emoji(emoji.id):
+                                content = content.replace(str(emoji), f"https://cdn.discordapp.com/emojis/{emoji.id}.png")
 
-                            if message.attachments:
-                                for attachment in message.attachments:
-                                    await channel.send(f"**{message.guild.name} - {display_name}:** {content}")
-                                    await attachment.save(f"temp_{attachment.filename}")
-                                    with open(f"temp_{attachment.filename}", "rb") as file:
-                                        await channel.send(file=discord.File(file))
-                                    os.remove(f"temp_{attachment.filename}")
-                            else:
+                        if message.attachments:
+                            for attachment in message.attachments:
                                 await channel.send(f"**{message.guild.name} - {display_name}:** {content}")
+                                await attachment.save(f"temp_{attachment.filename}")
+                                with open(f"temp_{attachment.filename}", "rb") as file:
+                                    await channel.send(file=discord.File(file))
+                                os.remove(f"temp_{attachment.filename}")
+                        else:
+                            await channel.send(f"**{message.guild.name} - {display_name}:** {content}")
 
     @wormhole.command()
     async def blacklist(self, ctx, user: discord.User):
