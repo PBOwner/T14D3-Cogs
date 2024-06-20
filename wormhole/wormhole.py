@@ -55,43 +55,46 @@ class WormHole(commands.Cog):
             await ctx.send("This channel is not part of the public wormhole.")
 
     @wormhole.command(name="create")
-    async def wormhole_create(self, ctx, password: str):
-        """Create a private wormhole with a password."""
+    async def wormhole_create(self, ctx, name: str, password: str):
+        """Create a private wormhole with a name and password."""
         private_wormholes = await self.config.private_wormholes()
-        if password not in private_wormholes:
-            private_wormholes[password] = [ctx.channel.id]
+        if name not in private_wormholes:
+            private_wormholes[name] = {"password": password, "channels": [ctx.channel.id]}
             await self.config.private_wormholes.set(private_wormholes)
-            await ctx.send(f"Private wormhole created with password: `{password}`.")
+            await ctx.send(f"Private wormhole `{name}` created with the provided password.")
         else:
-            await ctx.send("A private wormhole with this password already exists.")
+            await ctx.send("A private wormhole with this name already exists.")
 
     @wormhole.command(name="join")
-    async def wormhole_join(self, ctx, password: str):
-        """Join an existing private wormhole with the correct password."""
+    async def wormhole_join(self, ctx, name: str, password: str):
+        """Join an existing private wormhole with the correct name and password."""
         private_wormholes = await self.config.private_wormholes()
-        if password in private_wormholes:
-            if ctx.channel.id not in private_wormholes[password]:
-                private_wormholes[password].append(ctx.channel.id)
-                await self.config.private_wormholes.set(private_wormholes)
-                await ctx.send(f"This channel has joined the private wormhole with password: `{password}`.")
-                await self.send_status_message(f"A faint signal was picked up from {ctx.channel.mention}, connection has been established.", ctx.channel, password)
+        if name in private_wormholes:
+            if private_wormholes[name]["password"] == password:
+                if ctx.channel.id not in private_wormholes[name]["channels"]:
+                    private_wormholes[name]["channels"].append(ctx.channel.id)
+                    await self.config.private_wormholes.set(private_wormholes)
+                    await ctx.send(f"This channel has joined the private wormhole `{name}`.")
+                    await self.send_status_message(f"A faint signal was picked up from {ctx.channel.mention}, connection has been established.", ctx.channel, name)
+                else:
+                    await ctx.send("This channel is already part of the private wormhole.")
             else:
-                await ctx.send("This channel is already part of the private wormhole.")
+                await ctx.send("Incorrect password for the private wormhole.")
         else:
-            await ctx.send("No private wormhole found with this password.")
+            await ctx.send("No private wormhole found with this name.")
 
     @wormhole.command(name="leave")
-    async def wormhole_leave(self, ctx, password: str):
+    async def wormhole_leave(self, ctx, name: str):
         """Leave a private wormhole."""
         private_wormholes = await self.config.private_wormholes()
-        if password in private_wormholes and ctx.channel.id in private_wormholes[password]:
-            private_wormholes[password].remove(ctx.channel.id)
-            if not private_wormholes[password]:
-                del private_wormholes[password]
+        if name in private_wormholes and ctx.channel.id in private_wormholes[name]["channels"]:
+            private_wormholes[name]["channels"].remove(ctx.channel.id)
+            if not private_wormholes[name]["channels"]:
+                del private_wormholes[name]
             await self.config.private_wormholes.set(private_wormholes)
-            await ctx.send(f"This channel has left the private wormhole with password: `{password}`.")
+            await ctx.send(f"This channel has left the private wormhole `{name}`.")
         else:
-            await ctx.send("This channel is not part of the private wormhole with this password.")
+            await ctx.send("This channel is not part of the private wormhole with this name.")
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -137,7 +140,8 @@ class WormHole(commands.Cog):
                             await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
 
         # Check if the message is in a private wormhole channel
-        for password, channels in private_wormholes.items():
+        for name, wormhole_data in private_wormholes.items():
+            channels = wormhole_data["channels"]
             if message.channel.id in channels:
                 for channel_id in channels:
                     if channel_id != message.channel.id:
