@@ -15,7 +15,7 @@ class WormHole(commands.Cog):
 
     async def send_status_message(self, message, channel, wormhole_key=None):
         if wormhole_key:
-            wormhole_data = await self.config.private_wormholes.get_raw(wwormhole_key, default={})
+            wormhole_data = await self.config.private_wormholes.get_raw(wormhole_key, default={})
             linked_channels = wormhole_data.get("channels", [])
         else:
             linked_channels = await self.config.linked_channels_list()
