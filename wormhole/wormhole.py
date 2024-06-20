@@ -120,11 +120,18 @@ class WormHole(commands.Cog):
 
         if any(word in message.content for word in word_filters):
             await message.channel.send("That word is not allowed.")
-            return  # Message contains a filtered word, notify user and ignore it
+            await message.delete()
+            return  # Message contains a filtered word, notify user and delete it
+
+        if message.channel.is_nsfw():
+            await message.channel.send("NSFW content is not allowed in the wormhole.")
+            await message.delete()
+            return  # Delete NSFW messages
 
         if "@everyone" in message.content or "@here" in message.content:
             await message.channel.send("`@everyone` and `@here` pings are not allowed.")
-            return  # Message contains prohibited pings, notify user and ignore it
+            await message.delete()
+            return  # Message contains prohibited pings, notify user and delete it
 
         # Check if the message is in a public wormhole channel
         if message.channel.id in linked_channels:
@@ -161,6 +168,38 @@ class WormHole(commands.Cog):
                                     os.remove(f"temp_{attachment.filename}")
                             else:
                                 await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
+
+    @commands.Cog.listener()
+    async def on_message_delete(self, message: discord.Message):
+        if not message.guild:
+            return
+
+        linked_channels = await self.config.linked_channels_list()
+        private_wormholes = await self.config.private_wormholes()
+
+        # Check if the message is in a public wormhole channel
+        if message.channel.id in linked_channels:
+            for channel_id in linked_channels:
+                if channel_id != message.channel.id:
+                    channel = self.bot.get_channel(channel_id)
+                    if channel:
+                        async for msg in channel.history(limit=100):
+                            if msg.content == f"**{message.guild.name} - {message.author.display_name}:** {message.content}":
+                                await msg.delete()
+                                break
+
+        # Check if the message is in a private wormhole channel
+        for name, wormhole_data in private_wormholes.items():
+            channels = wormhole_data["channels"]
+            if message.channel.id in channels:
+                for channel_id in channels:
+                    if channel_id != message.channel.id:
+                        channel = self.bot.get_channel(channel_id)
+                        if channel:
+                            async for msg in channel.history(limit=100):
+                                if msg.content == f"**{message.guild.name} - {message.author.display_name}:** {message.content}":
+                                    await msg.delete()
+                                    break
 
     @wormhole.command(name="globalblacklist")
     async def wormhole_globalblacklist(self, ctx, user: discord.User):
@@ -217,6 +256,3 @@ class WormHole(commands.Cog):
                 await ctx.send(f"`{word}` is not in the wormhole word filter.")
         else:
             await ctx.send("You must be the bot owner to use this command.")
-
-def setup(bot):
-    bot.add_cog(WormHole(bot))
