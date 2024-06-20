@@ -6,13 +6,20 @@ class WormHole(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.config = Config.get_conf(self, identifier="wormhole", force_registration=True)
-        self.config.register_global(linked_channels_list_1=[], linked_channels_list_2=[], linked_channels_list_3=[], user_blacklist=[], word_filters=[], global_blacklist=[])  # Initialize the configuration
+        self.config.register_global(
+            linked_channels_list_1=[],
+            linked_channels_list_2=[],
+            linked_channels_list_3=[],
+            user_blacklist=[],
+            word_filters=[],
+            global_blacklist=[]
+        )  # Initialize the configuration
 
         self.bot.loop.create_task(self.setup_listeners())
 
     async def setup_listeners(self):
         await self.bot.wait_until_ready()
-        self.bot.add_listener(self.on_source_message, "on_message")
+        self.bot.add_listener(self.on_message_without_command, "on_message")
 
     async def send_status_message(self, message, channel, wormhole_number):
         linked_channels = await self.config.get_raw(f'linked_channels_list_{wormhole_number}')
