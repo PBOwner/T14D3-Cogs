@@ -15,7 +15,7 @@ class WormHole(commands.Cog):
 
     async def send_status_message(self, message, channel, wormhole_key=None):
         if wormhole_key:
-            linked_channels = await self.config.private_wormholes.get_raw(wormhole_key, default=[])
+            linked_channels = await self.config.private_wormholes.get_raw(wormhole_key, default={}).get("channels", [])
         else:
             linked_channels = await self.config.linked_channels_list()
 
@@ -256,3 +256,6 @@ class WormHole(commands.Cog):
                 await ctx.send(f"`{word}` is not in the wormhole word filter.")
         else:
             await ctx.send("You must be the bot owner to use this command.")
+
+def setup(bot):
+    bot.add_cog(WormHole(bot))
