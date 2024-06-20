@@ -8,7 +8,6 @@ class WormHole(commands.Cog):
         self.config = Config.get_conf(self, identifier="wormhole", force_registration=True)
         self.config.register_global(
             linked_channels_list=[],
-            user_blacklist=[],
             global_blacklist=[],
             word_filters=[]
         )  # Initialize the configuration
@@ -59,6 +58,11 @@ class WormHole(commands.Cog):
         if isinstance(message.channel, discord.TextChannel) and message.content.startswith(commands.when_mentioned(self.bot, message)[0]):
             return  # Ignore bot commands
 
+        # Check if the message is a bot command
+        ctx = await self.bot.get_context(message)
+        if ctx.valid:
+            return  # Ignore bot commands
+
         linked_channels = await self.config.linked_channels_list()
         global_blacklist = await self.config.global_blacklist()
         word_filters = await self.config.word_filters()
@@ -70,7 +74,7 @@ class WormHole(commands.Cog):
             await message.channel.send("That word is not allowed.")
             return  # Message contains a filtered word, notify user and ignore it
 
-        if message.channel.id in linked_channels and message.author.id not in await self.config.user_blacklist():
+        if message.channel.id in linked_channels:
             for channel_id in linked_channels:
                 if channel_id != message.channel.id:
                     channel = self.bot.get_channel(channel_id)
@@ -85,34 +89,6 @@ class WormHole(commands.Cog):
                                 os.remove(f"temp_{attachment.filename}")
                         else:
                             await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
-
-    @wormhole.command()
-    async def blacklist(self, ctx, user: discord.User):
-        """Prevent specific members from sending messages through the wormhole."""
-        if await self.bot.is_owner(ctx.author):
-            user_blacklist = await self.config.user_blacklist()
-            if user.id not in user_blacklist:
-                user_blacklist.append(user.id)
-                await self.config.user_blacklist.set(user_blacklist)
-                await ctx.send(f"{user.display_name} has been added to the wormhole blacklist.")
-            else:
-                await ctx.send(f"{user.display_name} is already in the wormhole blacklist.")
-        else:
-            await ctx.send("You must be the bot owner to use this command.")
-
-    @wormhole.command(name="unblacklist")
-    async def wormhole_unblacklist(self, ctx, user: discord.User):
-        """Command to remove a user from the wormhole blacklist (Bot Owner Only)."""
-        if await self.bot.is_owner(ctx.author):
-            user_blacklist = await self.config.user_blacklist()
-            if user.id in user_blacklist:
-                user_blacklist.remove(user.id)
-                await self.config.user_blacklist.set(user_blacklist)
-                await ctx.send(f"{user.display_name} has been removed from the wormhole blacklist.")
-            else:
-                await ctx.send(f"{user.display_name} is not in the wormhole blacklist.")
-        else:
-            await ctx.send("You must be the bot owner to use this command.")
 
     @wormhole.command(name="globalblacklist")
     async def wormhole_globalblacklist(self, ctx, user: discord.User):
