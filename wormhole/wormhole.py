@@ -107,6 +107,18 @@ class WormHole(commands.Cog):
                         else:
                             await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
 
+            # Check for mentions and send DM if it's a reply
+            if message.reference and message.reference.message_id in self.message_references:
+                original_message_id = message.reference.message_id
+                original_author_id, original_guild_id = self.message_references[original_message_id]
+                original_author = self.bot.get_user(original_author_id)
+                if original_author:
+                    embed = discord.Embed(title="You were mentioned")
+                    embed.add_field(name="Who", value=message.author.mention, inline=False)
+                    embed.add_field(name="Where", value=f"{message.channel.mention} in {message.guild.name}", inline=False)
+                    embed.add_field(name="What", value=message.content, inline=False)
+                    await original_author.send(embed=embed)
+
     @commands.Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
         if not after.guild:
@@ -139,25 +151,6 @@ class WormHole(commands.Cog):
                             if msg.content == f"**{message.guild.name} - {message.author.display_name}:** {message.content}":
                                 await msg.delete()
                                 break
-
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        if message.author.bot:
-            return
-
-        linked_channels = await self.config.linked_channels_list()
-
-        if message.reference and message.channel.id in linked_channels:
-            original_message_id = message.reference.message_id
-            if original_message_id in self.message_references:
-                original_author_id, original_guild_id = self.message_references[original_message_id]
-                original_author = self.bot.get_user(original_author_id)
-                if original_author:
-                    embed = discord.Embed(title="You were mentioned")
-                    embed.add_field(name="Who", value=message.author.mention, inline=False)
-                    embed.add_field(name="Where", value=f"{message.channel.mention} in {message.guild.name}", inline=False)
-                    embed.add_field(name="What", value=message.content, inline=False)
-                    await original_author.send(embed=embed)
 
     @wormhole.command(name="globalblacklist")
     async def wormhole_globalblacklist(self, ctx, user: discord.User):
