@@ -103,6 +103,31 @@ class WormHole(commands.Cog):
                         else:
                             await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
 
+            # Check for mentions and send DM
+            if message.reference and message.reference.resolved:
+                referenced_message = message.reference.resolved
+                if referenced_message.author != message.author:
+                    embed = discord.Embed(title="You were mentioned")
+                    embed.add_field(name="Who", value=message.author.mention, inline=False)
+                    embed.add_field(name="Where", value=f"{message.channel.mention} in {message.guild.name}", inline=False)
+                    embed.add_field(name="What", value=message.content, inline=False)
+                    await referenced_message.author.send(embed=embed)
+
+    @commands.Cog.listener()
+    async def on_message_edit(self, before: discord.Message, after: discord.Message):
+        if not after.guild:
+            return
+
+        linked_channels = await self.config.linked_channels_list()
+
+        if after.channel.id in linked_channels:
+            display_name = after.author.display_name if after.author.display_name else after.author.name
+            for channel_id in linked_channels:
+                if channel_id != after.channel.id:
+                    channel = self.bot.get_channel(channel_id)
+                    if channel:
+                        await channel.send(f"**{after.guild.name} - {display_name} (edited):** {after.content}")
+
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
         if not message.guild:
