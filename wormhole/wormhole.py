@@ -134,13 +134,14 @@ class WormHole(commands.Cog):
             await message.delete()
             return  # Message contains prohibited pings, notify user and delete it
 
+        display_name = message.author.display_name if message.author.display_name else message.author.name
+
         # Check if the message is in a public wormhole channel
         if message.channel.id in linked_channels:
             for channel_id in linked_channels:
                 if channel_id != message.channel.id:
                     channel = self.bot.get_channel(channel_id)
                     if channel:
-                        display_name = message.author.display_name if message.author.display_name else message.author.name
                         if message.attachments:
                             for attachment in message.attachments:
                                 await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
@@ -159,7 +160,6 @@ class WormHole(commands.Cog):
                     if channel_id != message.channel.id:
                         channel = self.bot.get_channel(channel_id)
                         if channel:
-                            display_name = message.author.display_name if message.author.display_name else message.author.name
                             if message.attachments:
                                 for attachment in message.attachments:
                                     await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
