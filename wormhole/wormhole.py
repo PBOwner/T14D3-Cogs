@@ -8,12 +8,17 @@ class WormHole(commands.Cog):
         self.config = Config.get_conf(self, identifier="wormhole", force_registration=True)
         self.config.register_global(
             linked_channels_list=[],
+            private_wormholes={},
             global_blacklist=[],
             word_filters=[]
         )  # Initialize the configuration
 
-    async def send_status_message(self, message, channel):
-        linked_channels = await self.config.linked_channels_list()
+    async def send_status_message(self, message, channel, wormhole_key=None):
+        if wormhole_key:
+            linked_channels = await self.config.private_wormholes.get_raw(wormhole_key, default=[])
+        else:
+            linked_channels = await self.config.linked_channels_list()
+
         guild = channel.guild
         for channel_id in linked_channels:
             relay_channel = self.bot.get_channel(channel_id)
@@ -27,27 +32,66 @@ class WormHole(commands.Cog):
 
     @wormhole.command(name="open")
     async def wormhole_open(self, ctx):
-        """Link the current channel to the network."""
+        """Link the current channel to the public wormhole network."""
         linked_channels = await self.config.linked_channels_list()
         if ctx.channel.id not in linked_channels:
             linked_channels.append(ctx.channel.id)
             await self.config.linked_channels_list.set(linked_channels)
-            await ctx.send("This channel has joined the ever-changing maelstrom that is the wormhole.")
+            await ctx.send("This channel has joined the ever-changing maelstrom that is the public wormhole.")
             await self.send_status_message(f"A faint signal was picked up from {ctx.channel.mention}, connection has been established.", ctx.channel)
         else:
-            await ctx.send("This channel is already part of the wormhole.")
+            await ctx.send("This channel is already part of the public wormhole.")
 
     @wormhole.command(name="close")
     async def wormhole_close(self, ctx):
-        """Unlink the current channel from the network."""
+        """Unlink the current channel from the public wormhole network."""
         linked_channels = await self.config.linked_channels_list()
         if ctx.channel.id in linked_channels:
             linked_channels.remove(ctx.channel.id)
             await self.config.linked_channels_list.set(linked_channels)
-            await ctx.send("This channel has been severed from the wormhole.")
+            await ctx.send("This channel has been severed from the public wormhole.")
             await self.send_status_message(f"The signal from {ctx.channel.mention} has become too faint to be picked up, the connection was lost.", ctx.channel)
         else:
-            await ctx.send("This channel is not part of the wormhole.")
+            await ctx.send("This channel is not part of the public wormhole.")
+
+    @wormhole.command(name="create")
+    async def wormhole_create(self, ctx, password: str):
+        """Create a private wormhole with a password."""
+        private_wormholes = await self.config.private_wormholes()
+        if password not in private_wormholes:
+            private_wormholes[password] = [ctx.channel.id]
+            await self.config.private_wormholes.set(private_wormholes)
+            await ctx.send(f"Private wormhole created with password: `{password}`.")
+        else:
+            await ctx.send("A private wormhole with this password already exists.")
+
+    @wormhole.command(name="join")
+    async def wormhole_join(self, ctx, password: str):
+        """Join an existing private wormhole with the correct password."""
+        private_wormholes = await self.config.private_wormholes()
+        if password in private_wormholes:
+            if ctx.channel.id not in private_wormholes[password]:
+                private_wormholes[password].append(ctx.channel.id)
+                await self.config.private_wormholes.set(private_wormholes)
+                await ctx.send(f"This channel has joined the private wormhole with password: `{password}`.")
+                await self.send_status_message(f"A faint signal was picked up from {ctx.channel.mention}, connection has been established.", ctx.channel, password)
+            else:
+                await ctx.send("This channel is already part of the private wormhole.")
+        else:
+            await ctx.send("No private wormhole found with this password.")
+
+    @wormhole.command(name="leave")
+    async def wormhole_leave(self, ctx, password: str):
+        """Leave a private wormhole."""
+        private_wormholes = await self.config.private_wormholes()
+        if password in private_wormholes and ctx.channel.id in private_wormholes[password]:
+            private_wormholes[password].remove(ctx.channel.id)
+            if not private_wormholes[password]:
+                del private_wormholes[password]
+            await self.config.private_wormholes.set(private_wormholes)
+            await ctx.send(f"This channel has left the private wormhole with password: `{password}`.")
+        else:
+            await ctx.send("This channel is not part of the private wormhole with this password.")
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -66,6 +110,7 @@ class WormHole(commands.Cog):
         linked_channels = await self.config.linked_channels_list()
         global_blacklist = await self.config.global_blacklist()
         word_filters = await self.config.word_filters()
+        private_wormholes = await self.config.private_wormholes()
 
         if message.author.id in global_blacklist:
             return  # Author is globally blacklisted
@@ -74,6 +119,7 @@ class WormHole(commands.Cog):
             await message.channel.send("That word is not allowed.")
             return  # Message contains a filtered word, notify user and ignore it
 
+        # Check if the message is in a public wormhole channel
         if message.channel.id in linked_channels:
             for channel_id in linked_channels:
                 if channel_id != message.channel.id:
@@ -89,6 +135,24 @@ class WormHole(commands.Cog):
                                 os.remove(f"temp_{attachment.filename}")
                         else:
                             await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
+
+        # Check if the message is in a private wormhole channel
+        for password, channels in private_wormholes.items():
+            if message.channel.id in channels:
+                for channel_id in channels:
+                    if channel_id != message.channel.id:
+                        channel = self.bot.get_channel(channel_id)
+                        if channel:
+                            display_name = message.author.display_name if message.author.display_name else message.author.name
+                            if message.attachments:
+                                for attachment in message.attachments:
+                                    await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
+                                    await attachment.save(f"temp_{attachment.filename}")
+                                    with open(f"temp_{attachment.filename}", "rb") as file:
+                                        await channel.send(file=discord.File(file))
+                                    os.remove(f"temp_{attachment.filename}")
+                            else:
+                                await channel.send(f"**{message.guild.name} - {display_name}:** {message.content}")
 
     @wormhole.command(name="globalblacklist")
     async def wormhole_globalblacklist(self, ctx, user: discord.User):
