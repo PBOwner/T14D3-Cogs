@@ -122,6 +122,10 @@ class WormHole(commands.Cog):
             await message.channel.send("That word is not allowed.")
             return  # Message contains a filtered word, notify user and ignore it
 
+        if "@everyone" in message.content or "@here" in message.content:
+            await message.channel.send("`@everyone` and `@here` pings are not allowed.")
+            return  # Message contains prohibited pings, notify user and ignore it
+
         # Check if the message is in a public wormhole channel
         if message.channel.id in linked_channels:
             for channel_id in linked_channels:
