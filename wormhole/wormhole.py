@@ -121,7 +121,7 @@ class WormHole(commands.Cog):
 
             # Handle emojis
             for emoji in message.guild.emojis:
-                if emoji in message.content and not emoji.is_usable():
+                if str(emoji) in message.content and not emoji.is_usable():
                     content = content.replace(str(emoji), emoji.url)
 
             for channel_id in linked_channels:
@@ -167,7 +167,7 @@ class WormHole(commands.Cog):
 
             # Handle emojis
             for emoji in after.guild.emojis:
-                if emoji in after.content and not emoji.is_usable():
+                if str(emoji) in after.content and not emoji.is_usable():
                     content = content.replace(str(emoji), emoji.url)
 
             for channel_id in linked_channels:
