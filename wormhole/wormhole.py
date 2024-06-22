@@ -76,12 +76,6 @@ class WormHole(commands.Cog):
             global_blacklist = await self.config.global_blacklist()
             word_filters = await self.config.word_filters()
 
-            if "@everyone" in message.content or "@here" in message.content:
-                embed = discord.Embed(title="ErRoR 404", description="`@everyone` and `@here` pings are not allowed in wormhole channels.")
-                await message.channel.send(embed=embed)
-                await message.delete()
-                return  # Message contains prohibited pings, notify user and delete it
-
             if message.author.id in global_blacklist:
                 return  # Author is globally blacklisted
 
