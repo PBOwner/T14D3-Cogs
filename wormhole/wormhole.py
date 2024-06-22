@@ -73,10 +73,6 @@ class WormHole(commands.Cog):
         linked_channels = await self.config.linked_channels_list()
 
         if message.channel.id in linked_channels:
-            # Bypass filters for bot owner
-            if await self.bot.is_owner(message.author):
-                return
-
             global_blacklist = await self.config.global_blacklist()
             word_filters = await self.config.word_filters()
 
@@ -86,20 +82,20 @@ class WormHole(commands.Cog):
             if any(word in message.content for word in word_filters):
                 embed = discord.Embed(title="ErRoR 404", description="That word is not allowed.")
                 await message.channel.send(embed=embed)
-                await message.delete()
-                return  # Message contains a filtered word, notify user and delete it
+                await message.delete()  # Message contains a filtered word, notify user and delete it
+                return
 
             if "@everyone" in message.content or "@here" in message.content:
                 embed = discord.Embed(title="ErRoR 404", description="Pinging @everyone or @here is not allowed.")
                 await message.channel.send(embed=embed)
-                await message.delete()
-                return  # Message contains @everyone or @here, notify user and delete it
+                await message.delete()  # Message contains @everyone or @here, notify user and delete it
+                return
 
             if message.channel.is_nsfw():
                 embed = discord.Embed(title="ErRoR 404", description="NSFW content is not allowed in the wormhole.")
                 await message.channel.send(embed=embed)
-                await message.delete()
-                return  # Delete NSFW messages
+                await message.delete()  # Delete NSFW messages
+                return
 
             display_name = message.author.display_name if message.author.display_name else message.author.name
 
@@ -150,10 +146,6 @@ class WormHole(commands.Cog):
         linked_channels = await self.config.linked_channels_list()
 
         if after.channel.id in linked_channels:
-            # Bypass filters for bot owner
-            if await self.bot.is_owner(after.author):
-                return
-
             display_name = after.author.display_name if after.author.display_name else after.author.name
             content = after.content
 
