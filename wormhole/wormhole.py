@@ -71,13 +71,20 @@ class WormHole(commands.Cog):
             return  # Ignore bot commands
 
         linked_channels = await self.config.linked_channels_list()
-        global_blacklist = await self.config.global_blacklist()
-        word_filters = await self.config.word_filters()
-
-        if message.author.id in global_blacklist:
-            return  # Author is globally blacklisted
 
         if message.channel.id in linked_channels:
+            global_blacklist = await self.config.global_blacklist()
+            word_filters = await self.config.word_filters()
+
+            if "@everyone" in message.content or "@here" in message.content:
+                embed = discord.Embed(title="ErRoR 404", description="`@everyone` and `@here` pings are not allowed in wormhole channels.")
+                await message.channel.send(embed=embed)
+                await message.delete()
+                return  # Message contains prohibited pings, notify user and delete it
+
+            if message.author.id in global_blacklist:
+                return  # Author is globally blacklisted
+
             if any(word in message.content for word in word_filters):
                 embed = discord.Embed(title="ErRoR 404", description="That word is not allowed.")
                 await message.channel.send(embed=embed)
@@ -89,12 +96,6 @@ class WormHole(commands.Cog):
                 await message.channel.send(embed=embed)
                 await message.delete()
                 return  # Delete NSFW messages
-
-            if "@everyone" in message.content or "@here" in message.content:
-                embed = discord.Embed(title="ErRoR 404", description="`@everyone` and `@here` pings are not allowed in wormhole channels.")
-                await message.channel.send(embed=embed)
-                await message.delete()
-                return  # Message contains prohibited pings, notify user and delete it
 
             display_name = message.author.display_name if message.author.display_name else message.author.name
 
@@ -247,9 +248,6 @@ class WormHole(commands.Cog):
             else:
                 embed = discord.Embed(title="ErRoR 404", description=f"`{word}` is already in the wormhole word filter.")
                 await ctx.send(embed=embed)
-        else:
-            embed = discord.Embed(title="ErRoR 404", description="You must be the bot owner to use this command.")
-            await ctx.send(embed=embed)
 
     @wormhole.command(name="removewordfilter")
     async def wormhole_removewordfilter(self, ctx, *, word: str):
@@ -264,9 +262,6 @@ class WormHole(commands.Cog):
             else:
                 embed = discord.Embed(title="ErRoR 404", description=f"`{word}` is not in the wormhole word filter.")
                 await ctx.send(embed=embed)
-        else:
-            embed = discord.Embed(title="ErRoR 404", description="You must be the bot owner to use this command.")
-            await ctx.send(embed=embed)
 
 def setup(bot):
     bot.add_cog(WormHole(bot))
