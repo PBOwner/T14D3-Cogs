@@ -103,8 +103,26 @@ class WormHole(commands.Cog):
 
             # Relay the message to other linked channels, removing mentions
             content = message.content
-            for user in message.mentions:
-                content = content.replace(user.mention, f"@{user.display_name}")
+
+            # Handle mentions
+            mentioned_users = message.mentions
+            if mentioned_users:
+                for user in mentioned_users:
+                    content = content.replace(user.mention, '')  # Remove the mention
+                    embed = discord.Embed(title="You were mentioned!")
+                    embed.add_field(name="Who", value=message.author.mention, inline=False)
+                    embed.add_field(name="Where", value=f"{message.channel.mention} in {message.guild.name}", inline=False)
+                    embed.add_field(name="When", value=message.created_at.strftime("%Y-%m-%d %H:%M:%S"), inline=False)
+                    await user.send(embed=embed)
+
+            # If there's no content left after removing mentions
+            if not content.strip():
+                content = "User Mentioned Blocked"
+
+            # Handle emojis
+            for emoji in message.guild.emojis:
+                if emoji in message.content and not emoji.is_usable():
+                    content = content.replace(str(emoji), emoji.url)
 
             for channel_id in linked_channels:
                 if channel_id != message.channel.id:
@@ -121,27 +139,6 @@ class WormHole(commands.Cog):
                             relay_message = await channel.send(f"**{message.guild.name} - {display_name}:** {content}")
                         self.relayed_messages[(message.id, channel_id)] = relay_message.id
 
-            # Check for mentions and send DM if it's a reply
-            if message.reference and message.reference.message_id in self.message_references:
-                original_message_id = message.reference.message_id
-                original_author_id, original_guild_id = self.message_references[original_message_id]
-                original_author = self.bot.get_user(original_author_id)
-                if original_author:
-                    embed = discord.Embed(title="You were mentioned!")
-                    embed.add_field(name="Who", value=message.author.mention, inline=False)
-                    embed.add_field(name="Where", value=f"{message.channel.mention} in {message.guild.name}", inline=False)
-                    embed.add_field(name="When", value=message.created_at.strftime("%Y-%m-%d %H:%M:%S"), inline=False)
-                    await original_author.send(embed=embed)
-
-            # Check for direct mentions and send DM
-            for user in message.mentions:
-                if user.id != message.author.id:
-                    embed = discord.Embed(title="You were mentioned!")
-                    embed.add_field(name="Who", value=message.author.mention, inline=False)
-                    embed.add_field(name="Where", value=f"{message.channel.mention} in {message.guild.name}", inline=False)
-                    embed.add_field(name="When", value=message.created_at.strftime("%Y-%m-%d %H:%M:%S"), inline=False)
-                    await user.send(embed=embed)
-
     @commands.Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
         if not after.guild:
@@ -152,8 +149,27 @@ class WormHole(commands.Cog):
         if after.channel.id in linked_channels:
             display_name = after.author.display_name if after.author.display_name else after.author.name
             content = after.content
-            for user in after.mentions:
-                content = content.replace(user.mention, f"@{user.display_name}")
+
+            # Handle mentions
+            mentioned_users = after.mentions
+            if mentioned_users:
+                for user in mentioned_users:
+                    content = content.replace(user.mention, '')  # Remove the mention
+                    embed = discord.Embed(title="You were mentioned!")
+                    embed.add_field(name="Who", value=after.author.mention, inline=False)
+                    embed.add_field(name="Where", value=f"{after.channel.mention} in {after.guild.name}", inline=False)
+                    embed.add_field(name="When", value=after.created_at.strftime("%Y-%m-%d %H:%M:%S"), inline=False)
+                    await user.send(embed=embed)
+
+            # If there's no content left after removing mentions
+            if not content.strip():
+                content = "User Mentioned Blocked"
+
+            # Handle emojis
+            for emoji in after.guild.emojis:
+                if emoji in after.content and not emoji.is_usable():
+                    content = content.replace(str(emoji), emoji.url)
+
             for channel_id in linked_channels:
                 if channel_id != after.channel.id:
                     channel = self.bot.get_channel(channel_id)
