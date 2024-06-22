@@ -120,9 +120,7 @@ class WormHole(commands.Cog):
                 content = "User Mentioned Blocked"
 
             # Handle emojis
-            for emoji in message.guild.emojis:
-                if str(emoji) in message.content and not emoji.is_usable():
-                    content = content.replace(str(emoji), emoji.url)
+            content = self.replace_emojis_with_urls(message.guild, content)
 
             for channel_id in linked_channels:
                 if channel_id != message.channel.id:
@@ -166,9 +164,7 @@ class WormHole(commands.Cog):
                 content = "User Mentioned Blocked"
 
             # Handle emojis
-            for emoji in after.guild.emojis:
-                if str(emoji) in after.content and not emoji.is_usable():
-                    content = content.replace(str(emoji), emoji.url)
+            content = self.replace_emojis_with_urls(after.guild, content)
 
             for channel_id in linked_channels:
                 if channel_id != after.channel.id:
@@ -197,6 +193,12 @@ class WormHole(commands.Cog):
                         relay_message_id = self.relayed_messages[(message.id, channel_id)]
                         relay_message = await channel.fetch_message(relay_message_id)
                         await relay_message.delete()
+
+    def replace_emojis_with_urls(self, guild, content):
+        for emoji in guild.emojis:
+            if str(emoji) in content:
+                content = content.replace(str(emoji), emoji.url)
+        return content
 
     @wormhole.command(name="globalblacklist")
     async def wormhole_globalblacklist(self, ctx, user: discord.User):
