@@ -91,7 +91,7 @@ class WormHole(commands.Cog):
                 return  # Delete NSFW messages
 
             if "@everyone" in message.content or "@here" in message.content:
-                embed = discord.Embed(title="ErRoR 404", description="`@everyone` and `@here` pings are not allowed.")
+                embed = discord.Embed(title="ErRoR 404", description="`@everyone` and `@here` pings are not allowed in wormhole channels.")
                 await message.channel.send(embed=embed)
                 await message.delete()
                 return  # Message contains prohibited pings, notify user and delete it
