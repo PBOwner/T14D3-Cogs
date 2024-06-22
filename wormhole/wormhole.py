@@ -23,7 +23,7 @@ class WormHole(commands.Cog):
             if relay_channel and relay_channel != channel:
                 await relay_channel.send(embed=embed)
 
-    @commands.group()
+    @commands.group(aliases=['wm'])
     async def wormhole(self, ctx):
         """Manage wormhole connections."""
         pass
