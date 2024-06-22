@@ -108,7 +108,7 @@ class WormHole(commands.Cog):
             mentioned_users = message.mentions
             if mentioned_users:
                 for user in mentioned_users:
-                    content = content.replace(user.mention, '')  # Remove the mention
+                    content = content.replace(f"<@{user.id}>", '')  # Remove the mention
                     embed = discord.Embed(title="You were mentioned!")
                     embed.add_field(name="Who", value=message.author.mention, inline=False)
                     embed.add_field(name="Where", value=f"{message.channel.mention} in {message.guild.name}", inline=False)
@@ -154,7 +154,7 @@ class WormHole(commands.Cog):
             mentioned_users = after.mentions
             if mentioned_users:
                 for user in mentioned_users:
-                    content = content.replace(user.mention, '')  # Remove the mention
+                    content = content.replace(f"<@{user.id}>", '')  # Remove the mention
                     embed = discord.Embed(title="You were mentioned!")
                     embed.add_field(name="Who", value=after.author.mention, inline=False)
                     embed.add_field(name="Where", value=f"{after.channel.mention} in {after.guild.name}", inline=False)
