@@ -85,18 +85,6 @@ class WormHole(commands.Cog):
                 await message.delete()  # Message contains a filtered word, notify user and delete it
                 return
 
-            if "@everyone" in message.content or "@here" in message.content:
-                embed = discord.Embed(title="ErRoR 404", description="Pinging @everyone or @here is not allowed.")
-                await message.channel.send(embed=embed)
-                await message.delete()  # Message contains @everyone or @here, notify user and delete it
-                return
-
-            if message.channel.is_nsfw():
-                embed = discord.Embed(title="ErRoR 404", description="NSFW content is not allowed in the wormhole.")
-                await message.channel.send(embed=embed)
-                await message.delete()  # Delete NSFW messages
-                return
-
             display_name = message.author.display_name if message.author.display_name else message.author.name
 
             # Store the message reference
@@ -104,6 +92,9 @@ class WormHole(commands.Cog):
 
             # Relay the message to other linked channels, removing mentions
             content = message.content
+
+            # Remove @everyone and @here mentions
+            content = content.replace("@everyone", "").replace("@here", "")
 
             # Handle mentions
             mentioned_users = message.mentions
@@ -148,6 +139,9 @@ class WormHole(commands.Cog):
         if after.channel.id in linked_channels:
             display_name = after.author.display_name if after.author.display_name else after.author.name
             content = after.content
+
+            # Remove @everyone and @here mentions
+            content = content.replace("@everyone", "").replace("@here", "")
 
             # Handle mentions
             mentioned_users = after.mentions
@@ -198,7 +192,7 @@ class WormHole(commands.Cog):
     def replace_emojis_with_urls(self, guild, content):
         for emoji in guild.emojis:
             if str(emoji) in content:
-                content = content.replace(str(emoji), emoji.url)
+                content = content.replace(str(emoji), str(emoji.url))
         return content
 
     @wormhole.command(name="globalblacklist")
