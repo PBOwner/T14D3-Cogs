@@ -104,28 +104,9 @@ class WormHole(commands.Cog):
                     for role in mentioned_roles:
                         content = content.replace(f"<@&{role.id}>", '')  # Remove the role mention
 
-                    if mentioned_users or mentioned_roles:
-                        await message.delete()  # Delete the original message if it contains mentions
-                        await message.channel.send(f"{message.author.mention}, pings are not allowed in this channel.", delete_after=5)
-
-                        # Track user pings
-                        now = datetime.utcnow()
-                        if message.author.id not in self.user_ping_count:
-                            self.user_ping_count[message.author.id] = []
-                        self.user_ping_count[message.author.id].append(now)
-                        self.user_ping_count[message.author.id] = [timestamp for timestamp in self.user_ping_count[message.author.id] if now - timestamp < timedelta(minutes=10)]
-
-                        # Timeout user if they ping 5 or more times in 10 minutes
-                        if len(self.user_ping_count[message.author.id]) >= 5:
-                            await message.author.timeout(timedelta(minutes=10), reason="Pinged 5 or more times in 10 minutes")
-                            await message.channel.send(f"{message.author.mention} has been timed out for 10 minutes due to excessive pings.", delete_after=5)
-                            self.user_ping_count[message.author.id] = []  # Reset ping count
-
-                        return  # Stop processing further if mentions are found and message is deleted
-
-            # If there's no content left after removing mentions
-            if not content.strip():
-                content = "User Mentioned Blocked"
+                    if not content.strip():  # If the message is now empty, delete it
+                        await message.delete()
+                        return
 
             # Handle emojis
             content = self.replace_emojis_with_urls(message.guild, content)
@@ -171,28 +152,9 @@ class WormHole(commands.Cog):
                     for role in mentioned_roles:
                         content = content.replace(f"<@&{role.id}>", '')  # Remove the role mention
 
-                    if mentioned_users or mentioned_roles:
-                        await after.delete()  # Delete the edited message if it contains mentions
-                        await after.channel.send(f"{after.author.mention}, pings are not allowed in this channel.", delete_after=5)
-
-                        # Track user pings
-                        now = datetime.utcnow()
-                        if after.author.id not in self.user_ping_count:
-                            self.user_ping_count[after.author.id] = []
-                        self.user_ping_count[after.author.id].append(now)
-                        self.user_ping_count[after.author.id] = [timestamp for timestamp in self.user_ping_count[after.author.id] if now - timestamp < timedelta(minutes=10)]
-
-                        # Timeout user if they ping 5 or more times in 10 minutes
-                        if len(self.user_ping_count[after.author.id]) >= 5:
-                            await after.author.timeout(timedelta(minutes=10), reason="Pinged 5 or more times in 10 minutes")
-                            await after.channel.send(f"{after.author.mention} has been timed out for 10 minutes due to excessive pings.", delete_after=5)
-                            self.user_ping_count[after.author.id] = []  # Reset ping count
-
-                        return  # Stop processing further if mentions are found and message is deleted
-
-            # If there's no content left after removing mentions
-            if not content.strip():
-                content = "User Mentioned Blocked"
+                    if not content.strip():  # If the message is now empty, delete it
+                        await after.delete()
+                        return
 
             # Handle emojis
             content = self.replace_emojis_with_urls(after.guild, content)
