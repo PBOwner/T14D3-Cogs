@@ -1,6 +1,7 @@
 import discord
 import os
 from redbot.core import commands, Config
+from datetime import datetime, timedelta
 
 class WormHole(commands.Cog):
     def __init__(self, bot):
@@ -13,6 +14,7 @@ class WormHole(commands.Cog):
         )  # Initialize the configuration
         self.message_references = {}  # Store message references
         self.relayed_messages = {}  # Store relayed messages
+        self.user_ping_count = {}  # Track user pings
 
     async def send_status_message(self, message, channel, title):
         linked_channels = await self.config.linked_channels_list()
@@ -62,13 +64,6 @@ class WormHole(commands.Cog):
             return
         if message.author.bot or not message.channel.permissions_for(message.guild.me).send_messages:
             return
-        if isinstance(message.channel, discord.TextChannel) and message.content.startswith(commands.when_mentioned(self.bot, message)[0]):
-            return  # Ignore bot commands
-
-        # Check if the message is a bot command
-        ctx = await self.bot.get_context(message)
-        if ctx.valid:
-            return  # Ignore bot commands
 
         # Ignore bot owners
         if await self.bot.is_owner(message.author):
@@ -113,6 +108,20 @@ class WormHole(commands.Cog):
                 if mentioned_users or mentioned_roles:
                     await message.delete()  # Delete the original message if it contains mentions
                     await message.channel.send(f"{message.author.mention}, pings are not allowed in this channel.", delete_after=5)
+
+                    # Track user pings
+                    now = datetime.utcnow()
+                    if message.author.id not in self.user_ping_count:
+                        self.user_ping_count[message.author.id] = []
+                    self.user_ping_count[message.author.id].append(now)
+                    self.user_ping_count[message.author.id] = [timestamp for timestamp in self.user_ping_count[message.author.id] if now - timestamp < timedelta(minutes=10)]
+
+                    # Timeout user if they ping 5 or more times in 10 minutes
+                    if len(self.user_ping_count[message.author.id]) >= 5:
+                        await message.author.timeout(timedelta(minutes=10), reason="Pinged 5 or more times in 10 minutes")
+                        await message.channel.send(f"{message.author.mention} has been timed out for 10 minutes due to excessive pings.", delete_after=5)
+                        self.user_ping_count[message.author.id] = []  # Reset ping count
+
                     return  # Stop processing further if mentions are found and message is deleted
 
             # If there's no content left after removing mentions
@@ -164,6 +173,20 @@ class WormHole(commands.Cog):
                 if mentioned_users or mentioned_roles:
                     await after.delete()  # Delete the edited message if it contains mentions
                     await after.channel.send(f"{after.author.mention}, pings are not allowed in this channel.", delete_after=5)
+
+                    # Track user pings
+                    now = datetime.utcnow()
+                    if after.author.id not in self.user_ping_count:
+                        self.user_ping_count[after.author.id] = []
+                    self.user_ping_count[after.author.id].append(now)
+                    self.user_ping_count[after.author.id] = [timestamp for timestamp in self.user_ping_count[after.author.id] if now - timestamp < timedelta(minutes=10)]
+
+                    # Timeout user if they ping 5 or more times in 10 minutes
+                    if len(self.user_ping_count[after.author.id]) >= 5:
+                        await after.author.timeout(timedelta(minutes=10), reason="Pinged 5 or more times in 10 minutes")
+                        await after.channel.send(f"{after.author.mention} has been timed out for 10 minutes due to excessive pings.", delete_after=5)
+                        self.user_ping_count[after.author.id] = []  # Reset ping count
+
                     return  # Stop processing further if mentions are found and message is deleted
 
             # If there's no content left after removing mentions
