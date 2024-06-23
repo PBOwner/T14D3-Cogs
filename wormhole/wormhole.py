@@ -70,6 +70,10 @@ class WormHole(commands.Cog):
         if ctx.valid:
             return  # Ignore bot commands
 
+        # Ignore bot owners
+        if await self.bot.is_owner(message.author):
+            return
+
         linked_channels = await self.config.linked_channels_list()
 
         if message.channel.id in linked_channels:
