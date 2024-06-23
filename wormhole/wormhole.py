@@ -71,7 +71,6 @@ class WormHole(commands.Cog):
         if message.channel.id in linked_channels:
             global_blacklist = await self.config.global_blacklist()
             word_filters = await self.config.word_filters()
-            mention_bypass_users = await self.config.mention_bypass_users()
 
             if message.author.id in global_blacklist:
                 return  # Author is globally blacklisted
@@ -97,16 +96,14 @@ class WormHole(commands.Cog):
             mentioned_users = message.mentions
             mentioned_roles = message.role_mentions
 
-            if mentioned_users or mentioned_roles:
-                if message.author.id not in mention_bypass_users:
-                    for user in mentioned_users:
-                        content = content.replace(f"<@{user.id}>", '')  # Remove the mention
-                    for role in mentioned_roles:
-                        content = content.replace(f"<@&{role.id}>", '')  # Remove the role mention
+            for user in mentioned_users:
+                content = content.replace(f"<@{user.id}>", '')  # Remove the mention
+            for role in mentioned_roles:
+                content = content.replace(f"<@&{role.id}>", '')  # Remove the role mention
 
-                    if not content.strip():  # If the message is now empty, delete it
-                        await message.delete()
-                        return
+            if not content.strip():  # If the message is now empty, delete it
+                await message.delete()
+                return
 
             # Handle emojis
             content = self.replace_emojis_with_urls(message.guild, content)
@@ -144,17 +141,14 @@ class WormHole(commands.Cog):
             mentioned_users = after.mentions
             mentioned_roles = after.role_mentions
 
-            if mentioned_users or mentioned_roles:
-                mention_bypass_users = await self.config.mention_bypass_users()
-                if after.author.id not in mention_bypass_users:
-                    for user in mentioned_users:
-                        content = content.replace(f"<@{user.id}>", '')  # Remove the mention
-                    for role in mentioned_roles:
-                        content = content.replace(f"<@&{role.id}>", '')  # Remove the role mention
+            for user in mentioned_users:
+                content = content.replace(f"<@{user.id}>", '')  # Remove the mention
+            for role in mentioned_roles:
+                content = content.replace(f"<@&{role.id}>", '')  # Remove the role mention
 
-                    if not content.strip():  # If the message is now empty, delete it
-                        await after.delete()
-                        return
+            if not content.strip():  # If the message is now empty, delete it
+                await after.delete()
+                return
 
             # Handle emojis
             content = self.replace_emojis_with_urls(after.guild, content)
