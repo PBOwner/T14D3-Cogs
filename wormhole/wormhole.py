@@ -59,27 +59,26 @@ class WormHole(commands.Cog):
             embed = discord.Embed(title="ErRoR 404", description="This channel is not part of the wormhole.")
             await ctx.send(embed=embed)
 
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        if not message.guild:  # Don't allow in DMs
-            return
-        if message.author.bot or not message.channel.permissions_for(message.guild.me).send_messages:
-            return
+@commands.Cog.listener()
+async def on_message(self, message: discord.Message):
+    if not message.guild:  # Don't allow in DMs
+        return
+    if message.author.bot or not message.channel.permissions_for(message.guild.me).send_messages:
+        return
 
-        # Ignore bot owners and bypass users
-        if await self.bot.is_owner(message.author):
-            return
+    linked_channels = await self.config.linked_channels_list()
 
-        bypass_users = await self.config.bypass_users()
-        if message.author.id in bypass_users:
-            return
+    # Always relay bot owner's messages
+    if await self.bot.is_owner(message.author):
+        bypass_filters = True
+    else:
+        bypass_filters = False
 
-        linked_channels = await self.config.linked_channels_list()
+    if message.channel.id in linked_channels:
+        global_blacklist = await self.config.global_blacklist()
+        word_filters = await self.config.word_filters()
 
-        if message.channel.id in linked_channels:
-            global_blacklist = await self.config.global_blacklist()
-            word_filters = await self.config.word_filters()
-
+        if not bypass_filters:
             if message.author.id in global_blacklist:
                 return  # Author is globally blacklisted
 
@@ -89,67 +88,67 @@ class WormHole(commands.Cog):
                 await message.delete()  # Message contains a filtered word, notify user and delete it
                 return
 
-            display_name = message.author.display_name if message.author.display_name else message.author.name
+        display_name = message.author.display_name if message.author.display_name else message.author.name
 
-            # Store the message reference
-            self.message_references[message.id] = (message.author.id, message.guild.id)
+        # Store the message reference
+        self.message_references[message.id] = (message.author.id, message.guild.id)
 
-            # Relay the message to other linked channels, removing mentions
-            content = message.content
+        # Relay the message to other linked channels, removing mentions
+        content = message.content
 
-            # Remove @everyone and @here mentions
-            content = content.replace("@everyone", "").replace("@here", "")
+        # Remove @everyone and @here mentions
+        content = content.replace("@everyone", "").replace("@here", "")
 
-            # Handle mentions
-            mentioned_users = message.mentions
-            mentioned_roles = message.role_mentions
+        # Handle mentions
+        mentioned_users = message.mentions
+        mentioned_roles = message.role_mentions
+
+        if mentioned_users or mentioned_roles:
+            for user in mentioned_users:
+                content = content.replace(f"<@{user.id}>", '')  # Remove the mention
+            for role in mentioned_roles:
+                content = content.replace(f"<@&{role.id}>", '')  # Remove the role mention
 
             if mentioned_users or mentioned_roles:
-                for user in mentioned_users:
-                    content = content.replace(f"<@{user.id}>", '')  # Remove the mention
-                for role in mentioned_roles:
-                    content = content.replace(f"<@&{role.id}>", '')  # Remove the role mention
+                await message.delete()  # Delete the original message if it contains mentions
+                await message.channel.send(f"{message.author.mention}, pings are not allowed in this channel.", delete_after=5)
 
-                if mentioned_users or mentioned_roles:
-                    await message.delete()  # Delete the original message if it contains mentions
-                    await message.channel.send(f"{message.author.mention}, pings are not allowed in this channel.", delete_after=5)
+                # Track user pings
+                now = datetime.utcnow()
+                if message.author.id not in self.user_ping_count:
+                    self.user_ping_count[message.author.id] = []
+                self.user_ping_count[message.author.id].append(now)
+                self.user_ping_count[message.author.id] = [timestamp for timestamp in self.user_ping_count[message.author.id] if now - timestamp < timedelta(minutes=10)]
 
-                    # Track user pings
-                    now = datetime.utcnow()
-                    if message.author.id not in self.user_ping_count:
-                        self.user_ping_count[message.author.id] = []
-                    self.user_ping_count[message.author.id].append(now)
-                    self.user_ping_count[message.author.id] = [timestamp for timestamp in self.user_ping_count[message.author.id] if now - timestamp < timedelta(minutes=10)]
+                # Timeout user if they ping 5 or more times in 10 minutes
+                if len(self.user_ping_count[message.author.id]) >= 5:
+                    await message.author.timeout(timedelta(minutes=10), reason="Pinged 5 or more times in 10 minutes")
+                    await message.channel.send(f"{message.author.mention} has been timed out for 10 minutes due to excessive pings.", delete_after=5)
+                    self.user_ping_count[message.author.id] = []  # Reset ping count
 
-                    # Timeout user if they ping 5 or more times in 10 minutes
-                    if len(self.user_ping_count[message.author.id]) >= 5:
-                        await message.author.timeout(timedelta(minutes=10), reason="Pinged 5 or more times in 10 minutes")
-                        await message.channel.send(f"{message.author.mention} has been timed out for 10 minutes due to excessive pings.", delete_after=5)
-                        self.user_ping_count[message.author.id] = []  # Reset ping count
+                return  # Stop processing further if mentions are found and message is deleted
 
-                    return  # Stop processing further if mentions are found and message is deleted
+        # If there's no content left after removing mentions
+        if not content.strip():
+            content = "User Mentioned Blocked"
 
-            # If there's no content left after removing mentions
-            if not content.strip():
-                content = "User Mentioned Blocked"
+        # Handle emojis
+        content = self.replace_emojis_with_urls(message.guild, content)
 
-            # Handle emojis
-            content = self.replace_emojis_with_urls(message.guild, content)
-
-            for channel_id in linked_channels:
-                if channel_id != message.channel.id:
-                    channel = self.bot.get_channel(channel_id)
-                    if channel:
-                        if message.attachments:
-                            for attachment in message.attachments:
-                                relay_message = await channel.send(f"**{message.guild.name} - {display_name}:** {content}")
-                                await attachment.save(f"temp_{attachment.filename}")
-                                with open(f"temp_{attachment.filename}", "rb") as file:
-                                    await channel.send(file=discord.File(file))
-                                os.remove(f"temp_{attachment.filename}")
-                        else:
+        for channel_id in linked_channels:
+            if channel_id != message.channel.id:
+                channel = self.bot.get_channel(channel_id)
+                if channel:
+                    if message.attachments:
+                        for attachment in message.attachments:
                             relay_message = await channel.send(f"**{message.guild.name} - {display_name}:** {content}")
-                        self.relayed_messages[(message.id, channel_id)] = relay_message.id
+                            await attachment.save(f"temp_{attachment.filename}")
+                            with open(f"temp_{attachment.filename}", "rb") as file:
+                                await channel.send(file=discord.File(file))
+                            os.remove(f"temp_{attachment.filename}")
+                    else:
+                        relay_message = await channel.send(f"**{message.guild.name} - {display_name}:** {content}")
+                    self.relayed_messages[(message.id, channel_id)] = relay_message.id
 
     @commands.Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
