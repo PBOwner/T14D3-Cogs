@@ -10,7 +10,8 @@ class WormHole(commands.Cog):
         self.config.register_global(
             linked_channels_list=[],
             global_blacklist=[],
-            word_filters=[]
+            word_filters=[],
+            bypass_users=[]
         )  # Initialize the configuration
         self.message_references = {}  # Store message references
         self.relayed_messages = {}  # Store relayed messages
@@ -65,8 +66,12 @@ class WormHole(commands.Cog):
         if message.author.bot or not message.channel.permissions_for(message.guild.me).send_messages:
             return
 
-        # Ignore bot owners
+        # Ignore bot owners and bypass users
         if await self.bot.is_owner(message.author):
+            return
+
+        bypass_users = await self.config.bypass_users()
+        if message.author.id in bypass_users:
             return
 
         linked_channels = await self.config.linked_channels_list()
@@ -305,6 +310,34 @@ class WormHole(commands.Cog):
             else:
                 embed = discord.Embed(title="ErRoR 404", description=f"`{word}` is not in the wormhole word filter.")
                 await ctx.send(embed=embed)
+
+    @wormhole.command(name="addbypass")
+    @commands.is_owner()
+    async def wormhole_addbypass(self, ctx, user: discord.User):
+        """Allow a user to bypass all filters."""
+        bypass_users = await self.config.bypass_users()
+        if user.id not in bypass_users:
+            bypass_users.append(user.id)
+            await self.config.bypass_users.set(bypass_users)
+            embed = discord.Embed(title="Success!", description=f"{user.display_name} has been allowed to bypass all filters.")
+            await ctx.send(embed=embed)
+        else:
+            embed = discord.Embed(title="ErRoR 404", description=f"{user.display_name} is already allowed to bypass all filters.")
+            await ctx.send(embed=embed)
+
+    @wormhole.command(name="removebypass")
+    @commands.is_owner()
+    async def wormhole_removebypass(self, ctx, user: discord.User):
+        """Remove a user's bypass for all filters."""
+        bypass_users = await self.config.bypass_users()
+        if user.id in bypass_users:
+            bypass_users.remove(user.id)
+            await self.config.bypass_users.set(bypass_users)
+            embed = discord.Embed(title="Success!", description=f"{user.display_name} is no longer allowed to bypass all filters.")
+            await ctx.send(embed=embed)
+        else:
+            embed = discord.Embed(title="ErRoR 404", description=f"{user.display_name} is not allowed to bypass all filters.")
+            await ctx.send(embed=embed)
 
 def setup(bot):
     bot.add_cog(WormHole(bot))
