@@ -98,14 +98,18 @@ class WormHole(commands.Cog):
 
             # Handle mentions
             mentioned_users = message.mentions
-            if mentioned_users:
+            mentioned_roles = message.role_mentions
+
+            if mentioned_users or mentioned_roles:
                 for user in mentioned_users:
                     content = content.replace(f"<@{user.id}>", '')  # Remove the mention
-                    embed = discord.Embed(title="You were mentioned!")
-                    embed.add_field(name="Who", value=message.author.mention, inline=False)
-                    embed.add_field(name="Where", value=f"{message.channel.mention} in {message.guild.name}", inline=False)
-                    embed.add_field(name="When", value=message.created_at.strftime("%Y-%m-%d %H:%M:%S"), inline=False)
-                    await user.send(embed=embed)
+                for role in mentioned_roles:
+                    content = content.replace(f"<@&{role.id}>", '')  # Remove the role mention
+
+                if mentioned_users or mentioned_roles:
+                    await message.delete()  # Delete the original message if it contains mentions
+                    await message.channel.send(f"{message.author.mention}, pings are not allowed in this channel.", delete_after=5)
+                    return  # Stop processing further if mentions are found and message is deleted
 
             # If there's no content left after removing mentions
             if not content.strip():
@@ -145,14 +149,18 @@ class WormHole(commands.Cog):
 
             # Handle mentions
             mentioned_users = after.mentions
-            if mentioned_users:
+            mentioned_roles = after.role_mentions
+
+            if mentioned_users or mentioned_roles:
                 for user in mentioned_users:
                     content = content.replace(f"<@{user.id}>", '')  # Remove the mention
-                    embed = discord.Embed(title="You were mentioned!")
-                    embed.add_field(name="Who", value=after.author.mention, inline=False)
-                    embed.add_field(name="Where", value=f"{after.channel.mention} in {after.guild.name}", inline=False)
-                    embed.add_field(name="When", value=after.created_at.strftime("%Y-%m-%d %H:%M:%S"), inline=False)
-                    await user.send(embed=embed)
+                for role in mentioned_roles:
+                    content = content.replace(f"<@&{role.id}>", '')  # Remove the role mention
+
+                if mentioned_users or mentioned_roles:
+                    await after.delete()  # Delete the edited message if it contains mentions
+                    await after.channel.send(f"{after.author.mention}, pings are not allowed in this channel.", delete_after=5)
+                    return  # Stop processing further if mentions are found and message is deleted
 
             # If there's no content left after removing mentions
             if not content.strip():
@@ -186,8 +194,22 @@ class WormHole(commands.Cog):
                     channel = self.bot.get_channel(channel_id)
                     if channel and (message.id, channel_id) in self.relayed_messages:
                         relay_message_id = self.relayed_messages[(message.id, channel_id)]
-                        relay_message = await channel.fetch_message(relay_message_id)
-                        await relay_message.delete()
+                        try:
+                            relay_message = await channel.fetch_message(relay_message_id)
+                            await relay_message.delete()
+                        except discord.NotFound:
+                            pass  # Message is already deleted
+
+    @commands.Cog.listener()
+    async def on_member_ban(self, guild: discord.Guild, user: discord.User):
+        linked_channels = await self.config.linked_channels_list()
+        # Delete all messages from the banned user in linked channels
+        for channel_id in linked_channels:
+            channel = self.bot.get_channel(channel_id)
+            if channel:
+                async for message in channel.history(limit=1000):
+                    if message.author.id == user.id:
+                        await message.delete()
 
     def replace_emojis_with_urls(self, guild, content):
         for emoji in guild.emojis:
