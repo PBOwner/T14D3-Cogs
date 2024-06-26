@@ -2,6 +2,7 @@ import discord
 import os
 from redbot.core import commands, Config
 from datetime import datetime, timedelta
+import re
 
 class WormHole(commands.Cog):
     def __init__(self, bot):
@@ -81,6 +82,13 @@ class WormHole(commands.Cog):
                 await message.delete()  # Message contains a filtered word, notify user and delete it
                 return
 
+            # Block messages containing invites
+            if re.search(r"(discord\.gg/|discordapp\.com/invite/|discord\.me/|discord\.li/)", message.content):
+                embed = discord.Embed(title="ErRoR 404", description="Invites are not allowed.")
+                await message.channel.send(embed=embed)
+                await message.delete()
+                return
+
             display_name = message.author.display_name if message.author.display_name else message.author.name
 
             # Store the message reference
@@ -101,7 +109,7 @@ class WormHole(commands.Cog):
             for role in mentioned_roles:
                 content = content.replace(f"<@&{role.id}>", '')  # Remove the role mention
 
-            if not content.strip():  # If the message is now empty, delete it
+            if not content.strip() and not message.attachments:  # If the message is now empty and has no attachments, delete it
                 await message.delete()
                 return
 
@@ -146,7 +154,13 @@ class WormHole(commands.Cog):
             for role in mentioned_roles:
                 content = content.replace(f"<@&{role.id}>", '')  # Remove the role mention
 
-            if not content.strip():  # If the message is now empty, delete it
+            if any(word in content for word in await self.config.word_filters()):
+                embed = discord.Embed(title="ErRoR 404", description="That word is not allowed.")
+                await after.channel.send(embed=embed)
+                await after.delete()  # Message contains a filtered word, notify user and delete it
+                return
+
+            if not content.strip() and not after.attachments:  # If the message is now empty and has no attachments, delete it
                 await after.delete()
                 return
 
@@ -290,6 +304,3 @@ class WormHole(commands.Cog):
         else:
             embed = discord.Embed(title="ErRoR 404", description=f"{user.display_name} is not allowed to bypass the mention filter.")
             await ctx.send(embed=embed)
-
-def setup(bot):
-    bot.add_cog(WormHole(bot))
