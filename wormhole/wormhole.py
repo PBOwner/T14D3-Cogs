@@ -65,7 +65,7 @@ class WormHole(commands.Cog):
         """List all servers connected to the wormhole."""
         linked_channels = await self.config.linked_channels_list()
         if not linked_channels:
-            await ctx.send("No channels are currently linked to the wormhole.")
+            await ctx.send(embed=discord.Embed(title="Wormhole Servers", description="No channels are currently linked to the wormhole.", color=discord.Color.red()))
             return
 
         server_list = []
@@ -75,14 +75,18 @@ class WormHole(commands.Cog):
                 server_list.append(channel.guild)
 
         if not server_list:
-            await ctx.send("No servers are currently linked to the wormhole.")
+            await ctx.send(embed=discord.Embed(title="Wormhole Servers", description="No servers are currently linked to the wormhole.", color=discord.Color.red()))
             return
 
-        embed = discord.Embed(title="Connected Servers", color=discord.Color.blue())
-        for guild in server_list:
-            embed.add_field(name=guild.name, value=f"Server ID: {guild.id}", inline=False)
+        pages = []
+        for i in range(0, len(server_list), 25):
+            embed = discord.Embed(title="Connected Servers", color=discord.Color.blue())
+            for guild in server_list[i:i+25]:
+                embed.add_field(name=guild.name, value=f"Server ID: {guild.id}", inline=False)
+            pages.append(embed)
 
-        await ctx.send(embed=embed)
+        for page in pages:
+            await ctx.send(embed=page)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
