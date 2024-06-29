@@ -101,7 +101,7 @@ class WormHole(commands.Cog):
             await ctx.send(embed=discord.Embed(title="Wormhole Servers", description="No servers are currently linked to the wormhole.", color=discord.Color.red()))
             return
 
-        pages = []
+        embeds = []
         for guild, channels in server_list.items():
             embed = discord.Embed(title="Connected Servers", color=discord.Color.blue())
             owner = guild.owner
@@ -111,10 +111,18 @@ class WormHole(commands.Cog):
                     value=f"Owner: {owner} (ID: {owner.id})\nServer ID: {guild.id}\nChannel: {channel.mention} (ID: {channel.id})",
                     inline=True
                 )
-            pages.append(embed)
+                if len(embed.fields) == 25:
+                    embeds.append(embed)
+                    embed = discord.Embed(title="Connected Servers", color=discord.Color.blue())
+            if len(embed.fields) > 0:
+                embeds.append(embed)
 
-        for page in pages:
-            await ctx.send(embed=page)
+        paginator = commands.Paginator(prefix='', suffix='', max_size=2000)
+        for embed in embeds:
+            paginator.add_line(embed.to_dict())
+
+        for page in paginator.pages:
+            await ctx.send(embed=discord.Embed.from_dict(page))
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
