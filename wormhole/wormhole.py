@@ -62,18 +62,12 @@ class WormHole(commands.Cog):
 
     @wormhole.command(name="ownerclose")
     @commands.is_owner()
-    async def wormhole_ownerclose(self, ctx, server_id: int):
-        """Forcibly close all connections to the wormhole for a specific server (Bot Owner Only)."""
+    async def wormhole_ownerclose(self, ctx, channel_id: int):
+        """Forcibly close a connection to the wormhole (Bot Owner Only)."""
         linked_channels = await self.config.linked_channels_list()
-        channels_to_remove = [channel_id for channel_id in linked_channels if self.bot.get_channel(channel_id).guild.id == server_id]
-
-        if not channels_to_remove:
-            embed = discord.Embed(title="ErRoR 404", description=f"No channels found for server ID {server_id} in the wormhole.")
-            await ctx.send(embed=embed)
-            return
-
-        for channel_id in channels_to_remove:
+        if channel_id in linked_channels:
             linked_channels.remove(channel_id)
+            await self.config.linked_channels_list.set(linked_channels)
             channel = self.bot.get_channel(channel_id)
             if channel:
                 embed = discord.Embed(title="Success!", description=f"The channel {channel.mention} (ID: {channel_id}) has been forcibly severed from the wormhole.")
@@ -82,8 +76,9 @@ class WormHole(commands.Cog):
             else:
                 embed = discord.Embed(title="Success!", description=f"The channel ID {channel_id} has been forcibly severed from the wormhole.")
                 await ctx.send(embed=embed)
-
-        await self.config.linked_channels_list.set(linked_channels)
+        else:
+            embed = discord.Embed(title="ErRoR 404", description=f"The channel ID {channel_id} is not part of the wormhole.")
+            await ctx.send(embed=embed)
 
     @wormhole.command(name="servers")
     async def wormhole_servers(self, ctx):
@@ -93,24 +88,27 @@ class WormHole(commands.Cog):
             await ctx.send(embed=discord.Embed(title="Wormhole Servers", description="No channels are currently linked to the wormhole.", color=discord.Color.red()))
             return
 
-        server_list = []
+        server_list = {}
         for channel_id in linked_channels:
             channel = self.bot.get_channel(channel_id)
-            if channel and channel.guild not in server_list:
-                server_list.append(channel.guild)
+            if channel:
+                guild = channel.guild
+                if guild not in server_list:
+                    server_list[guild] = []
+                server_list[guild].append(channel)
 
         if not server_list:
             await ctx.send(embed=discord.Embed(title="Wormhole Servers", description="No servers are currently linked to the wormhole.", color=discord.Color.red()))
             return
 
         pages = []
-        for i in range(0, len(server_list), 25):
+        for guild, channels in server_list.items():
             embed = discord.Embed(title="Connected Servers", color=discord.Color.blue())
-            for guild in server_list[i:i+25]:
-                owner = guild.owner
+            owner = guild.owner
+            for channel in channels:
                 embed.add_field(
                     name=guild.name,
-                    value=f"Owner: {owner} (ID: {owner.id})\nServer ID: {guild.id}",
+                    value=f"Owner: {owner} (ID: {owner.id})\nServer ID: {guild.id}\nChannel: {channel.mention} (ID: {channel.id})",
                     inline=True
                 )
             pages.append(embed)
