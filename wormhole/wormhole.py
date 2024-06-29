@@ -60,6 +60,26 @@ class WormHole(commands.Cog):
             embed = discord.Embed(title="ErRoR 404", description="This channel is not part of the wormhole.")
             await ctx.send(embed=embed)
 
+    @wormhole.command(name="ownerclose")
+    @commands.is_owner()
+    async def wormhole_ownerclose(self, ctx, channel_id: int):
+        """Forcibly close a connection to the wormhole (Bot Owner Only)."""
+        linked_channels = await self.config.linked_channels_list()
+        if channel_id in linked_channels:
+            linked_channels.remove(channel_id)
+            await self.config.linked_channels_list.set(linked_channels)
+            channel = self.bot.get_channel(channel_id)
+            if channel:
+                embed = discord.Embed(title="Success!", description=f"The channel {channel.mention} has been forcibly severed from the wormhole.")
+                await ctx.send(embed=embed)
+                await self.send_status_message(f"The signal from {channel.mention} has been forcibly severed by the bot owner.", channel, "Success!")
+            else:
+                embed = discord.Embed(title="Success!", description=f"The channel ID {channel_id} has been forcibly severed from the wormhole.")
+                await ctx.send(embed=embed)
+        else:
+            embed = discord.Embed(title="ErRoR 404", description=f"The channel ID {channel_id} is not part of the wormhole.")
+            await ctx.send(embed=embed)
+
     @wormhole.command(name="servers")
     async def wormhole_servers(self, ctx):
         """List all servers connected to the wormhole."""
@@ -82,7 +102,12 @@ class WormHole(commands.Cog):
         for i in range(0, len(server_list), 25):
             embed = discord.Embed(title="Connected Servers", color=discord.Color.blue())
             for guild in server_list[i:i+25]:
-                embed.add_field(name=guild.name, value=f"Server ID: {guild.id}", inline=False)
+                owner = guild.owner
+                embed.add_field(
+                    name=guild.name,
+                    value=f"Owner: {owner} (ID: {owner.id})\nServer ID: {guild.id}",
+                    inline=True
+                )
             pages.append(embed)
 
         for page in pages:
