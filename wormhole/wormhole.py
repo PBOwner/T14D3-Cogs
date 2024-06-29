@@ -27,10 +27,10 @@ class WormHole(commands.Cog):
             if relay_channel and relay_channel != channel:
                 await relay_channel.send(embed=embed)
 
-    @commands.group(aliases=['wm'])
+    @commands.group(name="wormhole", aliases=["wm"], invoke_without_command=True)
     async def wormhole(self, ctx):
         """Manage wormhole connections."""
-        pass
+        await ctx.send_help(ctx.command)
 
     @wormhole.command(name="open")
     async def wormhole_open(self, ctx):
@@ -59,6 +59,30 @@ class WormHole(commands.Cog):
         else:
             embed = discord.Embed(title="ErRoR 404", description="This channel is not part of the wormhole.")
             await ctx.send(embed=embed)
+
+    @wormhole.command(name="servers")
+    async def wormhole_servers(self, ctx):
+        """List all servers connected to the wormhole."""
+        linked_channels = await self.config.linked_channels_list()
+        if not linked_channels:
+            await ctx.send("No channels are currently linked to the wormhole.")
+            return
+
+        server_list = []
+        for channel_id in linked_channels:
+            channel = self.bot.get_channel(channel_id)
+            if channel and channel.guild not in server_list:
+                server_list.append(channel.guild)
+
+        if not server_list:
+            await ctx.send("No servers are currently linked to the wormhole.")
+            return
+
+        embed = discord.Embed(title="Connected Servers", color=discord.Color.blue())
+        for guild in server_list:
+            embed.add_field(name=guild.name, value=f"Server ID: {guild.id}", inline=False)
+
+        await ctx.send(embed=embed)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
