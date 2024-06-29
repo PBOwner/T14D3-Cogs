@@ -101,28 +101,26 @@ class WormHole(commands.Cog):
             await ctx.send(embed=discord.Embed(title="Wormhole Servers", description="No servers are currently linked to the wormhole.", color=discord.Color.red()))
             return
 
-        embeds = []
+        embed = discord.Embed(title="Connected Servers", color=discord.Color.blue())
+        description = ""
         for guild, channels in server_list.items():
-            embed = discord.Embed(title="Connected Servers", color=discord.Color.blue())
             owner = guild.owner
             for channel in channels:
-                embed.add_field(
-                    name=guild.name,
-                    value=f"Owner: {owner} (ID: {owner.id})\nServer ID: {guild.id}\nChannel: {channel.mention} (ID: {channel.id})",
-                    inline=True
+                description += (
+                    f"**{guild.name}**\n"
+                    f"Owner: {owner} (ID: {owner.id})\n"
+                    f"Server ID: {guild.id}\n"
+                    f"Channel: {channel.mention} (ID: {channel.id})\n\n"
                 )
-                if len(embed.fields) == 25:
-                    embeds.append(embed)
+                if len(description) > 1800:  # Ensure we don't exceed Discord's embed limit
+                    embed.description = description
+                    await ctx.send(embed=embed)
                     embed = discord.Embed(title="Connected Servers", color=discord.Color.blue())
-            if len(embed.fields) > 0:
-                embeds.append(embed)
+                    description = ""
 
-        paginator = commands.Paginator(prefix='', suffix='', max_size=2000)
-        for embed in embeds:
-            paginator.add_line(embed.to_dict())
-
-        for page in paginator.pages:
-            await ctx.send(embed=discord.Embed.from_dict(page))
+        if description:  # Send any remaining data
+            embed.description = description
+            await ctx.send(embed=embed)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
