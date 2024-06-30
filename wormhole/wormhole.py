@@ -27,6 +27,16 @@ class WormHole(commands.Cog):
             if relay_channel and relay_channel != channel:
                 await relay_channel.send(embed=embed)
 
+    async def send_mention_embed(self, mentioned_user, where, who, content):
+        embed = discord.Embed(title="You got mentioned")
+        embed.add_field(name="Where", value=where, inline=False)
+        embed.add_field(name="Who", value=who, inline=False)
+        embed.add_field(name="Content", value=content[:25] + ('...' if len(content) > 25 else ''), inline=False)
+        try:
+            await mentioned_user.send(embed=embed)
+        except discord.Forbidden:
+            pass  # The user has DMs disabled or blocked the bot
+
     @commands.group(name="wormhole", aliases=["wm"], invoke_without_command=True)
     async def wormhole(self, ctx):
         """Manage wormhole connections."""
@@ -192,6 +202,12 @@ class WormHole(commands.Cog):
                         else:
                             relay_message = await channel.send(f"**{message.guild.name} - {display_name}:** {content}")
                         self.relayed_messages[(message.id, channel_id)] = relay_message.id
+
+            # Send DM to mentioned users
+            for mentioned_user in mentioned_users:
+                where = f"[Jump to message]({message.jump_url})"
+                who = message.author.mention
+                await self.send_mention_embed(mentioned_user, where, who, message.content)
 
     @commands.Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
