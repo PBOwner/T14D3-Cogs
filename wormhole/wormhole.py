@@ -18,8 +18,6 @@ class WormHole(commands.Cog):
         self.relayed_messages = {}  # Store relayed messages
         self.user_ping_count = {}  # Track user pings
 
-        self.bot.remove_command('globalblacklist')
-
     async def send_status_message(self, message, channel, title):
         linked_channels = await self.config.linked_channels_list()
         guild = channel.guild
@@ -301,7 +299,7 @@ class WormHole(commands.Cog):
                 content = content.replace(str(emoji), str(emoji.url))
         return content
 
-    @wormhole.command(name="globalblacklist")
+    @wormhole.command(name="blacklist")
     async def wormhole_globalblacklist(self, ctx, user: discord.User):
         """Prevent specific members from sending messages through the wormhole globally."""
         if await self.bot.is_owner(ctx.author):
@@ -318,7 +316,7 @@ class WormHole(commands.Cog):
             embed = discord.Embed(title="ErRoR 404", description="You must be the bot owner to use this command.")
             await ctx.send(embed=embed)
 
-    @wormhole.command(name="unglobalblacklist")
+    @wormhole.command(name="unblacklist")
     async def wormhole_unglobalblacklist(self, ctx, user: discord.User):
         """Command to remove a user from the global wormhole blacklist (Bot Owner Only)."""
         if await self.bot.is_owner(ctx.author):
