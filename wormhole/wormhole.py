@@ -333,7 +333,7 @@ class WormHole(commands.Cog):
             embed = discord.Embed(title="ErRoR 404", description="You must be the bot owner to use this command.")
             await ctx.send(embed=embed)
 
-    @wormhole.command(name="addwordfilter")
+    @wormhole.command(name="addtofilter")
     async def wormhole_addwordfilter(self, ctx, *, word: str):
         """Add a word to the wormhole word filter."""
         if await self.bot.is_owner(ctx.author):
@@ -347,7 +347,7 @@ class WormHole(commands.Cog):
                 embed = discord.Embed(title="ErRoR 404", description=f"`{word}` is already in the wormhole word filter.")
                 await ctx.send(embed=embed)
 
-    @wormhole.command(name="removewordfilter")
+    @wormhole.command(name="removefromfilter")
     async def wormhole_removewordfilter(self, ctx, *, word: str):
         """Remove a word from the wormhole word filter."""
         if await self.bot.is_owner(ctx.author):
@@ -361,7 +361,7 @@ class WormHole(commands.Cog):
                 embed = discord.Embed(title="ErRoR 404", description=f"`{word}` is not in the wormhole word filter.")
                 await ctx.send(embed=embed)
 
-    @wormhole.command(name="addmentionbypass")
+    @wormhole.command(name="addbypass")
     @commands.is_owner()
     async def wormhole_addmentionbypass(self, ctx, user: discord.User):
         """Allow a user to bypass the mention filter."""
@@ -375,7 +375,7 @@ class WormHole(commands.Cog):
             embed = discord.Embed(title="ErRoR 404", description=f"{user.display_name} is already allowed to bypass the mention filter.")
             await ctx.send(embed=embed)
 
-    @wormhole.command(name="removementionbypass")
+    @wormhole.command(name="removebypass")
     @commands.is_owner()
     async def wormhole_removementionbypass(self, ctx, user: discord.User):
         """Remove a user's bypass for the mention filter."""
