@@ -161,7 +161,11 @@ class WormHole(commands.Cog):
             # Auto-kick for messages containing money symbols and numbers
             money_regex = r"[\$\€\£\¥\₹\₽\₩\₪\₫\฿\₴\₦\₲\₱\₡\₭\₮\₳\₵\₸\₼\₿\₠\₢\₣\₤\₥\₧\₨\₩\₰\₯\₶\₷\₸\₺\₻\₼\₽\₾\₿]\d+(\.\d{1,2})?"
             if re.search(money_regex, message.content):
-                await message.author.kick(reason="Message sent is likely a scam.")
+                try:
+                    await message.author.kick(reason="Message contained money symbols and numbers.")
+                except discord.Forbidden:
+                    await message.delete()
+                    await message.channel.send(f"{message.author.mention}, your message contained prohibited content and has been deleted.")
                 return
 
             # Block messages containing invites
