@@ -17,7 +17,10 @@ class WormHole(commands.Cog):
         self.message_references = {}  # Store message references
         self.relayed_messages = {}  # Store relayed messages
         self.user_ping_count = {}  # Track user pings
-        self.recent_messages = {}  # Store recent messages with timestamps    
+        self.recent_messages = {}  # Store recent messages with timestamps
+
+        # Remove a command upon cog loading
+        self.bot.remove_command('command_to_remove')
 
     async def send_status_message(self, message, channel, title):
         linked_channels = await self.config.linked_channels_list()
@@ -158,7 +161,7 @@ class WormHole(commands.Cog):
             # Auto-kick for messages containing money symbols and numbers
             money_regex = r"[\$\€\£\¥\₹\₽\₩\₪\₫\฿\₴\₦\₲\₱\₡\₭\₮\₳\₵\₸\₼\₿\₠\₢\₣\₤\₥\₧\₨\₩\₰\₯\₶\₷\₸\₺\₻\₼\₽\₾\₿]\d+(\.\d{1,2})?"
             if re.search(money_regex, message.content):
-                await message.author.kick(reason="Message contained money symbols and numbers.")
+                await message.author.kick(reason="Their messages are likely scam.")
                 return
 
             # Block messages containing invites
@@ -170,11 +173,14 @@ class WormHole(commands.Cog):
 
             display_name = message.author.display_name if message.author.display_name else message.author.name
 
-            # Store the message reference
-            self.message_references[message.id] = (message.author.id, message.guild.id)
-
             # Store the recent message with timestamp
-            self.recent_messages[message.id] = datetime.utcnow()
+            self.recent_messages[message.id] = {
+                'author_id': message.author.id,
+                'author_name': display_name,
+                'guild_id': message.guild.id,
+                'channel_id': message.channel.id,
+                'timestamp': datetime.utcnow()
+            }
 
             # Relay the message to other linked channels, removing mentions
             content = message.content
@@ -219,15 +225,15 @@ class WormHole(commands.Cog):
                 who = message.author.mention
                 await self.send_mention_embed(mentioned_user, where, who, message.content)
 
+        # Check if this message is a reply to another message
+        if message.reference and message.reference.message_id in self.recent_messages:
+            original_message_data = self.recent_messages[message.reference.message_id]
+            original_channel = self.bot.get_channel(original_message_data['channel_id'])
+            if original_channel:
+                await original_channel.send(f"**Replying to {original_message_data['author_name']}**\n{message.content}")
+
         # Clean up old messages
         self.cleanup_old_messages()
-
-
-    async def cleanup_old_messages(self):
-        """Remove messages older than 24 hours from the recent messages dictionary."""
-        now = datetime.utcnow()
-        cutoff = now - timedelta(hours=24)
-        self.recent_messages = {msg_id: timestamp for msg_id, timestamp in self.recent_messages.items() if timestamp > cutoff}
 
     @commands.Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
@@ -317,273 +323,11 @@ class WormHole(commands.Cog):
                 content = content.replace(str(emoji), str(emoji.url))
         return content
 
-    @wormhole.command(name="blacklist")
-    async def wormhole_globalblacklist(self, ctx, user: discord.User):
-        """Prevent specific members from sending messages through the wormhole globally."""
-        if await self.bot.is_owner(ctx.author):
-            global_blacklist = await self.config.global_blacklist()
-            if user.id not in global_blacklist:
-                global_blacklist.append(user.id)
-                await self.config.global_blacklist.set(global_blacklist)
-                embed = discord.Embed(title="Success!", description=f"{user.display_name} has been added to the global wormhole blacklist.")
-                await ctx.send(embed=embed)
-            else:
-                embed = discord.Embed(title="ErRoR 404", description=f"{user.display_name} is already in the global wormhole blacklist.")
-                await ctx.send(embed=embed)
-        else:
-            embed = discord.Embed(title="ErRoR 404", description="You must be the bot owner to use this command.")
-            await ctx.send(embed=embed)
-
-    @wormhole.command(name="unblacklist")
-    async def wormhole_unglobalblacklist(self, ctx, user: discord.User):
-        """Command to remove a user from the global wormhole blacklist (Bot Owner Only)."""
-        if await self.bot.is_owner(ctx.author):
-            global_blacklist = await self.config.global_blacklist()
-            if user.id in global_blacklist:
-                global_blacklist.remove(user.id)
-                await self.config.global_blacklist.set(global_blacklist)
-                embed = discord.Embed(title="Success!", description=f"{user.display_name} has been removed from the global wormhole blacklist.")
-                await ctx.send(embed=embed)
-            else:
-                embed = discord.Embed(title="ErRoR 404", description=f"{user.display_name} is not in the global wormhole blacklist.")
-                await ctx.send(embed=embed)
-        else:
-            embed = discord.Embed(title="ErRoR 404", description="You must be the bot owner to use this command.")
-            await ctx.send(embed=embed)
-
-    @wormhole.command(name="addtofilter")
-    async def wormhole_addwordfilter(self, ctx, *, word: str):
-        """Add a word to the wormhole word filter."""
-        if await self.bot.is_owner(ctx.author):
-            word_filters = await self.config.word_filters()
-            if word not in word_filters:
-                word_filters.append(word)
-                await self.config.word_filters.set(word_filters)
-                embed = discord.Embed(title="Success!", description=f"`{word}` has been added to the wormhole word filter.")
-                await ctx.send(embed=embed)
-            else:
-                embed = discord.Embed(title="ErRoR 404", description=f"`{word}` is already in the wormhole word filter.")
-                await ctx.send(embed=embed)
-
-    @wormhole.command(name="removefromfilter")
-    async def wormhole_removewordfilter(self, ctx, *, word: str):
-        """Remove a word from the wormhole word filter."""
-        if await self.bot.is_owner(ctx.author):
-            word_filters = await self.config.word_filters()
-            if word in word_filters:
-                word_filters.remove(word)
-                await self.config.word_filters.set(word_filters)
-                embed = discord.Embed(title="Success!", description=f"`{word}` has been removed from the wormhole word filter.")
-                await ctx.send(embed=embed)
-            else:
-                embed = discord.Embed(title="ErRoR 404", description=f"`{word}` is not in the wormhole word filter.")
-                await ctx.send(embed=embed)
-
-    @wormhole.command(name="addbypass")
-    @commands.is_owner()
-    async def wormhole_addmentionbypass(self, ctx, user: discord.User):
-        """Allow a user to bypass the mention filter."""
-        mention_bypass_users = await self.config.mention_bypass_users()
-        if user.id not in mention_bypass_users:
-            mention_bypass_users.append(user.id)
-            await self.config.mention_bypass_users.set(mention_bypass_users)
-            embed = discord.Embed(title="Success!", description=f"{user.display_name} has been allowed to bypass the mention filter.")
-            await ctx.send(embed=embed)
-        else:
-            embed = discord.Embed(title="ErRoR 404", description=f"{user.display_name} is already allowed to bypass the mention filter.")
-            await ctx.send(embed=embed)
-
-    @wormhole.command(name="removebypass")
-    @commands.is_owner()
-    async def wormhole_removementionbypass(self, ctx, user: discord.User):
-        """Remove a user's bypass for the mention filter."""
-        mention_bypass_users = await self.config.mention_bypass_users()
-        if user.id in mention_bypass_users:
-            mention_bypass_users.remove(user.id)
-            await self.config.mention_bypass_users.set(mention_bypass_users)
-            embed = discord.Embed(title="Success!", description=f"{user.display_name} is no longer allowed to bypassthe mention filter.")
-            await ctx.send(embed=embed)
-        else:
-            embed = discord.Embed(title="ErRoR 404", description=f"{user.display_name} is not allowed to bypass the mention filter.")
-            await ctx.send(embed=embed)
-
-    @commands.Cog.listener()
-    async def on_typing(self, channel, user, when):
-        """Notify linked channels when a user is typing."""
-        linked_channels = await self.config.linked_channels_list()
-        if channel.id in linked_channels:
-            for channel_id in linked_channels:
-                if channel_id != channel.id:
-                    relay_channel = self.bot.get_channel(channel_id)
-                    if relay_channel:
-                        await relay_channel.trigger_typing()
-
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        if not message.guild:  # Don't allow in DMs
-            return
-        if message.author.bot or not message.channel.permissions_for(message.guild.me).send_messages:
-            return
-
-        linked_channels = await self.config.linked_channels_list()
-
-        if message.channel.id in linked_channels:
-            global_blacklist = await self.config.global_blacklist()
-            word_filters = await self.config.word_filters()
-
-            if message.author.id in global_blacklist:
-                return  # Author is globally blacklisted
-
-            if any(word in message.content for word in word_filters):
-                embed = discord.Embed(title="ErRoR 404", description="That word is not allowed.")
-                await message.channel.send(embed=embed)
-                await message.delete()  # Message contains a filtered word, notify user and delete it
-                return
-
-            # Auto-kick for messages containing money symbols and numbers
-            money_regex = r"[\$\€\£\¥\₹\₽\₩\₪\₫\฿\₴\₦\₲\₱\₡\₭\₮\₳\₵\₸\₼\₿\₠\₢\₣\₤\₥\₧\₨\₩\₰\₯\₶\₷\₸\₺\₻\₼\₽\₾\₿]\d+(\.\d{1,2})?"
-            if re.search(money_regex, message.content):
-                await message.author.kick(reason="Message is likely a scam.")
-                return
-
-            # Block messages containing invites
-            if re.search(r"(discord\.gg/|discordapp\.com/invite/|discord\.me/|discord\.li/)", message.content):
-                embed = discord.Embed(title="ErRoR 404", description="Invites are not allowed.")
-                await message.channel.send(embed=embed)
-                await message.delete()
-                return
-
-            display_name = message.author.display_name if message.author.display_name else message.author.name
-
-            # Store the message reference
-            self.message_references[message.id] = (message.author.id, message.guild.id)
-
-            # Relay the message to other linked channels, removing mentions
-            content = message.content
-
-            # Remove @everyone and @here mentions
-            content = content.replace("@everyone", "").replace("@here", "")
-
-            # Handle mentions
-            mentioned_users = message.mentions
-            mentioned_roles = message.role_mentions
-
-            for user in mentioned_users:
-                content = content.replace(f"<@{user.id}>", '')  # Remove the mention
-            for role in mentioned_roles:
-                content = content.replace(f"<@&{role.id}>", '')  # Remove the role mention
-
-            if not content.strip() and not message.attachments:  # If the message is now empty and has no attachments, delete it
-                await message.delete()
-                return
-
-            # Handle emojis
-            content = self.replace_emojis_with_urls(message.guild, content)
-
-            for channel_id in linked_channels:
-                if channel_id != message.channel.id:
-                    channel = self.bot.get_channel(channel_id)
-                    if channel:
-                        if message.attachments:
-                            for attachment in message.attachments:
-                                relay_message = await channel.send(f"**{message.guild.name} - {display_name}:** {content}")
-                                await attachment.save(f"temp_{attachment.filename}")
-                                with open(f"temp_{attachment.filename}", "rb") as file:
-                                    await channel.send(file=discord.File(file))
-                                os.remove(f"temp_{attachment.filename}")
-                        else:
-                            relay_message = await channel.send(f"**{message.guild.name} - {display_name}:** {content}")
-                        self.relayed_messages[(message.id, channel_id)] = relay_message.id
-
-            # Send DM to mentioned users
-            for mentioned_user in mentioned_users:
-                where = f"[Jump to message]({message.jump_url})"
-                who = message.author.mention
-                await self.send_mention_embed(mentioned_user, where, who, message.content)
-
-    @commands.Cog.listener()
-    async def on_message_edit(self, before: discord.Message, after: discord.Message):
-        if not after.guild:
-            return
-
-        linked_channels = await self.config.linked_channels_list()
-
-        if after.channel.id in linked_channels:
-            display_name = after.author.display_name if after.author.display_name else after.author.name
-            content = after.content
-
-            # Remove @everyone and @here mentions
-            content = content.replace("@everyone", "").replace("@here", "")
-
-            # Handle mentions
-            mentioned_users = after.mentions
-            mentioned_roles = after.role_mentions
-
-            for user in mentioned_users:
-                content = content.replace(f"<@{user.id}>", '')  # Remove the mention
-            for role in mentioned_roles:
-                content = content.replace(f"<@&{role.id}>", '')  # Remove the role mention
-
-            if any(word in content for word in await self.config.word_filters()):
-                embed = discord.Embed(title="ErRoR 404", description="That word is not allowed.")
-                await after.channel.send(embed=embed)
-                await after.delete()  # Message contains a filtered word, notify user and delete it
-                return
-
-            if not content.strip() and not after.attachments:  # If the message is now empty and has no attachments, delete it
-                await after.delete()
-                return
-
-            # Handle emojis
-            content = self.replace_emojis_with_urls(after.guild, content)
-
-            for channel_id in linked_channels:
-                if channel_id != after.channel.id:
-                    channel = self.bot.get_channel(channel_id)
-                    if channel:
-                        if (before.id, channel_id) in self.relayed_messages:
-                            relay_message_id = self.relayed_messages[(before.id, channel_id)]
-                            relay_message = await channel.fetch_message(relay_message_id)
-                            await relay_message.delete()
-                            new_relay_message = await channel.send(f"**{after.guild.name} - {display_name} (edited):** {content}")
-                            self.relayed_messages[(after.id, channel_id)] = new_relay_message.id
-
-    @commands.Cog.listener()
-    async def on_message_delete(self, message: discord.Message):
-        if not message.guild:
-            return
-
-        linked_channels = await self.config.linked_channels_list()
-
-        # Check if the message is in a wormhole channel
-        if message.channel.id in linked_channels:
-            for channel_id in linked_channels:
-                if channel_id != message.channel.id:
-                    channel = self.bot.get_channel(channel_id)
-                    if channel and (message.id, channel_id) in self.relayed_messages:
-                        relay_message_id = self.relayed_messages[(message.id, channel_id)]
-                        try:
-                            relay_message = await channel.fetch_message(relay_message_id)
-                            await relay_message.delete()
-                        except discord.NotFound:
-                            pass  # Message is already deleted
-
-    @commands.Cog.listener()
-    async def on_member_ban(self, guild: discord.Guild, user: discord.User):
-        linked_channels = await self.config.linked_channels_list()
-        # Delete all messages from the banned user in linked channels
-        for channel_id in linked_channels:
-            channel = self.bot.get_channel(channel_id)
-            if channel:
-                async for message in channel.history(limit=1000):
-                    if message.author.id == user.id:
-                        await message.delete()
-
-    def replace_emojis_with_urls(self, guild, content):
-        for emoji in guild.emojis:
-            if str(emoji) in content:
-                content = content.replace(str(emoji), str(emoji.url))
-        return content
+    def cleanup_old_messages(self):
+        """Remove messages older than 24 hours from the recent messages dictionary."""
+        now = datetime.utcnow()
+        cutoff = now - timedelta(hours=24)
+        self.recent_messages = {msg_id: data for msg_id, data in self.recent_messages.items() if data['timestamp'] > cutoff}
 
     @wormhole.command(name="globalblacklist")
     async def wormhole_globalblacklist(self, ctx, user: discord.User):
@@ -674,28 +418,6 @@ class WormHole(commands.Cog):
         else:
             embed = discord.Embed(title="ErRoR 404", description=f"{user.display_name} is not allowed to bypass the mention filter.")
             await ctx.send(embed=embed)
-
-    @wormhole.command(name="reply")
-    async def wormhole_reply(self, ctx, message_id: int, *, reply_content: str):
-        """Reply to a message across servers."""
-        if message_id in self.recent_messages:
-            original_author_id = self.recent_messages[message_id]['author_id']
-            original_guild_id = self.recent_messages[message_id]['guild_id']
-            original_author = self.bot.get_user(original_author_id)
-            original_guild = self.bot.get_guild(original_guild_id)
-
-            if original_author and original_guild:
-                linked_channels = await self.config.linked_channels_list()
-                for channel_id in linked_channels:
-                    channel = self.bot.get_channel(channel_id)
-                    if channel and channel.guild == original_guild:
-                        await channel.send(f"**{ctx.author.display_name} replied to {original_author.display_name}:** {reply_content}")
-                        await self.send_mention_embed(original_author, f"In {ctx.guild.name}", ctx.author.display_name, reply_content)
-                        break
-            else:
-                await ctx.send("Original message author or guild not found.")
-        else:
-            await ctx.send("Message ID not found in references.")
 
     @commands.Cog.listener()
     async def on_typing(self, channel, user, when):
