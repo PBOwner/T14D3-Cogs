@@ -162,10 +162,10 @@ class WormHole(commands.Cog):
             money_regex = r"[\$\€\£\¥\₹\₽\₩\₪\₫\฿\₴\₦\₲\₱\₡\₭\₮\₳\₵\₸\₼\₿\₠\₢\₣\₤\₥\₧\₨\₩\₰\₯\₶\₷\₸\₺\₻\₼\₽\₾\₿]\d+(\.\d{1,2})?"
             if re.search(money_regex, message.content):
                 try:
-                    await message.author.kick(reason="Message contained money symbols and numbers.")
+                    await message.author.kick(reason="Messages contained possible scam.")
                 except discord.Forbidden:
                     await message.delete()
-                    await message.channel.send(f"{message.author.mention}, your message contained prohibited content and has been deleted.")
+                    await message.channel.send(f"{message.author.name}, Your message contained a possible scam message. Please refrain from doing that in this server.")
                 return
 
             # Block messages containing invites
