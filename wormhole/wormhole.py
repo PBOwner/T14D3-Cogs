@@ -678,8 +678,9 @@ class WormHole(commands.Cog):
     @wormhole.command(name="reply")
     async def wormhole_reply(self, ctx, message_id: int, *, reply_content: str):
         """Reply to a message across servers."""
-        if message_id in self.message_references:
-            original_author_id, original_guild_id = self.message_references[message_id]
+        if message_id in self.recent_messages:
+            original_author_id = self.recent_messages[message_id]['author_id']
+            original_guild_id = self.recent_messages[message_id]['guild_id']
             original_author = self.bot.get_user(original_author_id)
             original_guild = self.bot.get_guild(original_guild_id)
 
