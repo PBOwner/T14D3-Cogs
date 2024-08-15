@@ -17,6 +17,7 @@ class WormHole(commands.Cog):
         self.message_references = {}  # Store message references
         self.relayed_messages = {}  # Store relayed messages
         self.user_ping_count = {}  # Track user pings
+        self.recent_messages = {}  # Store recent messages with timestamps    
 
     async def send_status_message(self, message, channel, title):
         linked_channels = await self.config.linked_channels_list()
@@ -172,6 +173,9 @@ class WormHole(commands.Cog):
             # Store the message reference
             self.message_references[message.id] = (message.author.id, message.guild.id)
 
+            # Store the recent message with timestamp
+            self.recent_messages[message.id] = datetime.utcnow()
+
             # Relay the message to other linked channels, removing mentions
             content = message.content
 
@@ -214,6 +218,16 @@ class WormHole(commands.Cog):
                 where = f"[Jump to message]({message.jump_url})"
                 who = message.author.mention
                 await self.send_mention_embed(mentioned_user, where, who, message.content)
+
+        # Clean up old messages
+        self.cleanup_old_messages()
+
+
+    async def cleanup_old_messages(self):
+        """Remove messages older than 24 hours from the recent messages dictionary."""
+        now = datetime.utcnow()
+        cutoff = now - timedelta(hours=24)
+        self.recent_messages = {msg_id: timestamp for msg_id, timestamp in self.recent_messages.items() if timestamp > cutoff}
 
     @commands.Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
@@ -281,6 +295,10 @@ class WormHole(commands.Cog):
                             await relay_message.delete()
                         except discord.NotFound:
                             pass  # Message is already deleted
+
+        # Remove the message from recent messages
+        if message.id in self.recent_messages:
+            del self.recent_messages[message.id]
 
     @commands.Cog.listener()
     async def on_member_ban(self, guild: discord.Guild, user: discord.User):
