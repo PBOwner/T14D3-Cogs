@@ -18,6 +18,8 @@ class WormHole(commands.Cog):
         self.relayed_messages = {}  # Store relayed messages
         self.user_ping_count = {}  # Track user pings
 
+        self.bot.remove_command('globalblacklist')
+
     async def send_status_message(self, message, channel, title):
         linked_channels = await self.config.linked_channels_list()
         guild = channel.guild
